@@ -1,0 +1,246 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* @custom-variant dark (&:is(.dark *)); */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+
+    --primary: 0 0% 15%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 10%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 10%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 15%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 25%;
+    --sidebar-primary: 0 0% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 0 0% 95%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 0 0% 50%;
+  }
+
+  .dark {
+    --background: 0 0% 10%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 10%;
+
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
+
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 0 0% 80%;
+    
+    --sidebar-background: 0 0% 15%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 0 0% 80%;
+    --sidebar-primary-foreground: 0 0% 10%;
+    --sidebar-accent: 0 0% 20%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 0 0% 80%;
+  }
+}
+
+@layer base {
+  * {
+    border-color: #e5e5e5; /* Using direct CSS instead of @apply */
+  }
+
+  body {
+    background-color: white; /* Using direct CSS instead of @apply */
+    color: hsl(var(--foreground));
+  }
+}
+
+/* Chat animation - ensuring it works regardless of Tailwind config */
+@keyframes scale-in {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out;
+}
+
+.login-image-container {
+  position: relative;
+  background: linear-gradient(135deg, #333333 0%, #1a1a1a 100%);
+}
+
+.login-image-overlay {
+  background: rgba(26, 26, 26, 0.7);
+}
+
+.aluminium-bg {
+  background-image: url('/aluminum-bg.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+/* Pattern background for the login banner */
+.bg-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239e9e9e' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Wave animation for the login form */
+.wave-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 120px;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.wave {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  background-repeat: repeat-x;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.wave1 {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath fill='%23f1f1f1' d='M0,120 L1200,120 L1200,52.47 C1113,14.29 989.49,65 897.85,55.74 C863.25,52.16 829.55,40.32 793.4,34.32 C722.3,22.52 653.27,29.4 584,47.4 C513.34,65.78 438.64,87.02 364.8,82.95 C294.33,78.76 228.36,50.82 158,45.45 C103.59,41.28 47.79,51.25 0,73.45 Z' opacity='.25'/%3E%3Cpath fill='%23f1f1f1' d='M0,120 L1200,120 L1200,0 C1187,20.76 1161.43,36.8 1139,47.69 C1110.91,61.36 1082.11,58.87 1051.91,67.53 C996.29,83.49 942.74,112.22 883.01,106.37 C841.25,102.32 802.69,89.11 764.91,71.52 C727.13,53.93 686.22,36.45 645.78,47.24 C604.47,58.24 573.92,94.85 542.15,120.24 C514.45,142.38 479.81,154.65 443.55,151.8 C397.45,148.13 353.64,121.13 312.72,102.13 C283.14,88.4 254.2,72.48 223.05,62.33 C163.47,42.91 98.88,42.64 47.16,81.86 C27.11,97.05 12.47,116.99 0,138.1 Z' opacity='.5'/%3E%3Cpath fill='%23f1f1f1' d='M0,120 L1200,120 L1200,0 C1123.66,39.1 1037.73,77.81 951.2,84.81 C886,90.05 827.93,72.03 768.96,45.74 C715.88,22.58 662.4,1.71 603.4,10.34 C560.02,16.68 518.79,29.16 475.79,36.8 C314.05,65.55 149.89,53.23 0,0 Z'/%3E%3C/svg%3E");
+  animation-name: wave-animation1;
+  animation-duration: 25s;
+  z-index: 1;
+}
+
+.wave2 {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath fill='%23e0e0e0' d='M0,120 L1200,120 L1200,52.47 C1113,14.29 989.49,65 897.85,55.74 C863.25,52.16 829.55,40.32 793.4,34.32 C722.3,22.52 653.27,29.4 584,47.4 C513.34,65.78 438.64,87.02 364.8,82.95 C294.33,78.76 228.36,50.82 158,45.45 C103.59,41.28 47.79,51.25 0,73.45 Z' opacity='.25'/%3E%3Cpath fill='%23e0e0e0' d='M0,120 L1200,120 L1200,0 C1187,20.76 1161.43,36.8 1139,47.69 C1110.91,61.36 1082.11,58.87 1051.91,67.53 C996.29,83.49 942.74,112.22 883.01,106.37 C841.25,102.32 802.69,89.11 764.91,71.52 C727.13,53.93 686.22,36.45 645.78,47.24 C604.47,58.24 573.92,94.85 542.15,120.24 C514.45,142.38 479.81,154.65 443.55,151.8 C397.45,148.13 353.64,121.13 312.72,102.13 C283.14,88.4 254.2,72.48 223.05,62.33 C163.47,42.91 98.88,42.64 47.16,81.86 C27.11,97.05 12.47,116.99 0,138.1 Z' opacity='.5'/%3E%3Cpath fill='%23e0e0e0' d='M0,120 L1200,120 L1200,0 C1123.66,39.1 1037.73,77.81 951.2,84.81 C886,90.05 827.93,72.03 768.96,45.74 C715.88,22.58 662.4,1.71 603.4,10.34 C560.02,16.68 518.79,29.16 475.79,36.8 C314.05,65.55 149.89,53.23 0,0 Z'/%3E%3C/svg%3E");
+  animation-name: wave-animation2;
+  animation-duration: 20s;
+  z-index: 2;
+}
+
+.wave3 {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath fill='%23d0d0d0' d='M0,120 L1200,120 L1200,52.47 C1113,14.29 989.49,65 897.85,55.74 C863.25,52.16 829.55,40.32 793.4,34.32 C722.3,22.52 653.27,29.4 584,47.4 C513.34,65.78 438.64,87.02 364.8,82.95 C294.33,78.76 228.36,50.82 158,45.45 C103.59,41.28 47.79,51.25 0,73.45 Z' opacity='.25'/%3E%3Cpath fill='%23d0d0d0' d='M0,120 L1200,120 L1200,0 C1187,20.76 1161.43,36.8 1139,47.69 C1110.91,61.36 1082.11,58.87 1051.91,67.53 C996.29,83.49 942.74,112.22 883.01,106.37 C841.25,102.32 802.69,89.11 764.91,71.52 C727.13,53.93 686.22,36.45 645.78,47.24 C604.47,58.24 573.92,94.85 542.15,120.24 C514.45,142.38 479.81,154.65 443.55,151.8 C397.45,148.13 353.64,121.13 312.72,102.13 C283.14,88.4 254.2,72.48 223.05,62.33 C163.47,42.91 98.88,42.64 47.16,81.86 C27.11,97.05 12.47,116.99 0,138.1 Z' opacity='.5'/%3E%3Cpath fill='%23d0d0d0' d='M0,120 L1200,120 L1200,0 C1123.66,39.1 1037.73,77.81 951.2,84.81 C886,90.05 827.93,72.03 768.96,45.74 C715.88,22.58 662.4,1.71 603.4,10.34 C560.02,16.68 518.79,29.16 475.79,36.8 C314.05,65.55 149.89,53.23 0,0 Z'/%3E%3C/svg%3E");
+  animation-name: wave-animation1;
+  animation-duration: 15s;
+  z-index: 3;
+}
+
+@keyframes wave-animation1 {
+  0% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-25%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes wave-animation2 {
+  0% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-30%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* Updated layered wave effect - keeping this for reference but using the animated waves instead */
+.wave-layer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+}
+
+.wave-layer-1 {
+  background-color: #f1f1f1;
+}
+
+.wave-layer-2 {
+  background-color: #e0e0e0;
+  clip-path: polygon(0 13%, 100% 0, 100% 100%, 0% 100%);
+}
+
+.wave-layer-3 {
+  background-color: #d0d0d0;
+  clip-path: polygon(0 25%, 100% 13%, 100% 100%, 0% 100%);
+}
+
+.wave-layer-4 {
+  background-color: #c0c0c0;
+  clip-path: polygon(0 37%, 100% 25%, 100% 100%, 0% 100%);
+}
+
+.wave-layer-5 {
+  background-color: #b0b0b0;
+  clip-path: polygon(0 50%, 100% 37%, 100% 100%, 0% 100%);
+}
+
+.wave-layer-6 {
+  background-color: #a0a0a0;
+  clip-path: polygon(0 63%, 100% 50%, 100% 100%, 0% 100%);
+}
+
+.wave-layer-7 {
+  background-color: #909090;
+  clip-path: polygon(0 75%, 100% 63%, 100% 100%, 0% 100%);
+}
