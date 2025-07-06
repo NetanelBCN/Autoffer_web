@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import NavBar from "@/components/NavBar";
 import Catalog from "@/components/Catalog";
 import Operations from "@/components/Operations";
@@ -14,6 +14,7 @@ import {
   CarouselItem,
 } from "@/components/ui/carousel";
 import { CartProvider } from "@/context/CartContext";
+import { UserModel } from "@/services/websocketService";
 
 // Placeholder supplier images
 const suppliers = [
@@ -42,35 +43,57 @@ const suppliers = [
 // Logo for "All" suppliers (using a placeholder image)
 const allLogo = "https://images.unsplash.com/photo-1500673922987-e212871fec22?auto=format&fit=crop&w=120&q=80";
 
-// User data - this would come from your auth context in a real app
-const userData = {
-  name: "Netanel B.C. Niazov",
-  email: "netanel.niazov@rndy.com",
-  image: "src/assets/userpic.jpeg",
-  dateOfBirth: "September 12, 2003",
-  phone: "+972528856251",
-  address: "Ben Zvi 23, Yehud-Monsson",
-  company: "R.N.D.Y Industries",
-  position: "CTO (Chief Technology Officer)",
-  memberSince: "2025",
-  bio: "Experienced aluminum industry professional with over 10 years of expertise in project management and supply chain optimization."
-};
-
 const Home = () => {
   const [activeSection, setActiveSection] = useState("home");
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [userData, setUserData] = useState<UserModel | null>(null);
+
+  useEffect(() => {
+    // Load user data from localStorage
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser: UserModel = JSON.parse(storedUser);
+        setUserData(parsedUser);
+        console.log('Loaded user data from localStorage:', parsedUser);
+      } catch (error) {
+        console.error('Failed to parse user data from localStorage:', error);
+      }
+    }
+  }, []);
 
   const handleNavigateToProjects = () => {
     setActiveSection("projects");
   };
 
   const handleImageError = () => {
-    console.log("Image failed to load:", userData.image);
+    console.log("Image failed to load");
   };
 
   const handleImageLoad = () => {
-    console.log("Image loaded successfully:", userData.image);
+    console.log("Image loaded successfully");
+  };
+
+  // Helper function to get user photo URL
+  const getUserPhotoUrl = () => {
+    if (userData?.photoBytes) {
+      return `data:image/jpeg;base64,${userData.photoBytes}`;
+    }
+    return null;
+  };
+
+  // Helper function to format date
+  const formatDate = (dateString: string) => {
+    if (!dateString || dateString === "N/A") return "N/A";
+    try {
+      // Handle the format "08-06-2025 13:10:05"
+      const [datePart] = dateString.split(' ');
+      const [day, month, year] = datePart.split('-');
+      return `${day}/${month}/${year}`;
+    } catch {
+      return dateString;
+    }
   };
 
   const renderContent = () => {
@@ -79,7 +102,9 @@ const Home = () => {
         return (
           <div className="space-y-12">
             <div className="text-center">
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">Welcome to R.N.D.Y Dashboard</h1>
+              <h1 className="text-4xl font-bold text-gray-900 mb-4">
+                Welcome to Autoffer Dashboard{userData ? `, ${userData.firstName}` : ''} 👋
+              </h1>
               <p className="text-xl text-gray-600">Your aluminum solutions platform</p>
             </div>
             <AluminumProjectShowcase onNavigateToProjects={handleNavigateToProjects} />
@@ -97,23 +122,32 @@ const Home = () => {
                 <CardTitle className="flex items-center space-x-4">
                   <Avatar className="w-16 h-16">
                     <AvatarImage 
-                      src={userData.image} 
-                      alt={userData.name}
+                      src={getUserPhotoUrl() || undefined}
+                      alt={userData ? `${userData.firstName} ${userData.lastName}` : 'User'}
                       onError={handleImageError}
                       onLoad={handleImageLoad}
                     />
                     <AvatarFallback className="text-xl bg-blue-500 text-white">
-                      {userData.name.split(' ').map(n => n.charAt(0)).join('')}
+                      {userData ? 
+                        `${userData.firstName.charAt(0)}${userData.lastName.charAt(0)}` : 
+                        'U'
+                      }
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h2 className="text-2xl font-semibold">{userData.name}</h2>
-                    <p className="text-gray-600">{userData.position}</p>
+                    <h2 className="text-2xl font-semibold">
+                      {userData ? `${userData.firstName} ${userData.lastName}` : 'N/A'}
+                    </h2>
+                    <p className="text-gray-600">
+                      {userData?.profileType === 'FACTORY' ? 'Factory Manager' : userData?.profileType || 'N/A'}
+                    </p>
                   </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-700 mb-4">{userData.bio}</p>
+                <p className="text-gray-700 mb-4">
+                  Experienced aluminum industry professional with expertise in project management and supply chain optimization.
+                </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   
                   {/* Contact Information */}
@@ -124,7 +158,7 @@ const Home = () => {
                       <Mail className="w-5 h-5 text-gray-500" />
                       <div>
                         <p className="text-sm text-gray-500">Email</p>
-                        <p className="text-gray-900">{userData.email}</p>
+                        <p className="text-gray-900">{userData?.email || 'N/A'}</p>
                       </div>
                     </div>
                     
@@ -132,7 +166,7 @@ const Home = () => {
                       <Phone className="w-5 h-5 text-gray-500" />
                       <div>
                         <p className="text-sm text-gray-500">Phone</p>
-                        <p className="text-gray-900">{userData.phone}</p>
+                        <p className="text-gray-900">{userData?.phoneNumber || 'N/A'}</p>
                       </div>
                     </div>
                     
@@ -140,7 +174,7 @@ const Home = () => {
                       <MapPin className="w-5 h-5 text-gray-500" />
                       <div>
                         <p className="text-sm text-gray-500">Address</p>
-                        <p className="text-gray-900">{userData.address}</p>
+                        <p className="text-gray-900">{userData?.address || 'N/A'}</p>
                       </div>
                     </div>
                   </div>
@@ -150,18 +184,10 @@ const Home = () => {
                     <h3 className="text-lg font-semibold text-gray-900 mb-3">Personal & Professional</h3>
                     
                     <div className="flex items-center space-x-3">
-                      <Calendar className="w-5 h-5 text-gray-500" />
-                      <div>
-                        <p className="text-sm text-gray-500">Date of Birth</p>
-                        <p className="text-gray-900">{userData.dateOfBirth}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
                       <Briefcase className="w-5 h-5 text-gray-500" />
                       <div>
                         <p className="text-sm text-gray-500">Company</p>
-                        <p className="text-gray-900">{userData.company}</p>
+                        <p className="text-gray-900">R.N.D.Y Industries</p>
                       </div>
                     </div>
                     
@@ -169,7 +195,7 @@ const Home = () => {
                       <Calendar className="w-5 h-5 text-gray-500" />
                       <div>
                         <p className="text-sm text-gray-500">Member Since</p>
-                        <p className="text-gray-900">{userData.memberSince}</p>
+                        <p className="text-gray-900">{formatDate(userData?.registeredAt || 'N/A')}</p>
                       </div>
                     </div>
                   </div>
@@ -304,7 +330,9 @@ const Home = () => {
         return (
           <div className="space-y-12">
             <div className="text-center">
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">Welcome to R.N.D.Y Dashboard</h1>
+              <h1 className="text-4xl font-bold text-gray-900 mb-4">
+                Welcome to Autoffer Dashboard{userData ? `, ${userData.firstName}` : ''} 👋
+              </h1>
               <p className="text-xl text-gray-600">Your aluminum solutions platform</p>
             </div>
             <AluminumProjectShowcase onNavigateToProjects={handleNavigateToProjects} />
@@ -317,7 +345,7 @@ const Home = () => {
   return (
     <CartProvider>
       <div className="min-h-screen bg-gray-50">
-        <NavBar activeSection={activeSection} onSectionChange={setActiveSection} />
+        <NavBar activeSection={activeSection} onSectionChange={setActiveSection} userData={userData} />
         <main className="pt-20 px-4">
           <div className="max-w-7xl mx-auto">
             {renderContent()}

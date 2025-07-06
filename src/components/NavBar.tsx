@@ -4,19 +4,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useCart } from "@/context/CartContext";
 import CartDialog from "./CartDialog";
 import { useState } from "react";
+import { UserModel } from "@/services/websocketService";
 
 interface NavBarProps {
   activeSection: string;
   onSectionChange: (section: string) => void;
+  userData?: UserModel | null;
 }
 
-const NavBar = ({ activeSection, onSectionChange }: NavBarProps) => {
-  // This would come from your auth context in a real app
-  const user = {
-    name: "Netanel B.C. Niazov",
-    image: "src/assets/userpic.jpeg"
-  };
-
+const NavBar = ({ activeSection, onSectionChange, userData }: NavBarProps) => {
   const handleClick = (section: string, e: React.MouseEvent) => {
     e.preventDefault();
     onSectionChange(section);
@@ -31,15 +27,29 @@ const NavBar = ({ activeSection, onSectionChange }: NavBarProps) => {
   const [showCart, setShowCart] = useState(false);
 
   const handleImageError = () => {
-    console.log("NavBar image failed to load:", user.image);
+    console.log("NavBar image failed to load");
   };
 
   const handleImageLoad = () => {
-    console.log("NavBar image loaded successfully:", user.image);
+    console.log("NavBar image loaded successfully");
+  };
+
+  // Helper function to get user photo URL
+  const getUserPhotoUrl = () => {
+    if (userData?.photoBytes) {
+      return `data:image/jpeg;base64,${userData.photoBytes}`;
+    }
+    return null;
   };
 
   // Cart badge above the user icon logic
   const cartTotal = getTotalCount();
+
+  // User display name
+  const userName = userData ? `${userData.firstName} ${userData.lastName}` : 'User';
+  const userInitials = userData ? 
+    `${userData.firstName.charAt(0)}${userData.lastName.charAt(0)}` : 
+    'U';
 
   return (
     <nav className="w-full bg-white border-b border-gray-200 px-4 py-2.5 fixed top-0 left-0 right-0 z-50">
@@ -82,16 +92,16 @@ const NavBar = ({ activeSection, onSectionChange }: NavBarProps) => {
           </button>
           <Popover>
             <PopoverTrigger className="flex items-center space-x-3 hover:opacity-80 relative">
-              <span className="text-gray-800 cursor-pointer">{user.name}</span>
+              <span className="text-gray-800 cursor-pointer">{userName}</span>
               <Avatar>
                 <AvatarImage 
-                  src={user.image} 
-                  alt={user.name}
+                  src={getUserPhotoUrl() || undefined}
+                  alt={userName}
                   onError={handleImageError}
                   onLoad={handleImageLoad}
                 />
                 <AvatarFallback className="bg-blue-500 text-white">
-                  {user.name.split(' ').map(n => n.charAt(0)).join('')}
+                  {userInitials}
                 </AvatarFallback>
               </Avatar>
             </PopoverTrigger>

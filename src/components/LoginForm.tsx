@@ -1,20 +1,28 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, LogIn } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { websocketService, LoginRequest } from "@/services/websocketService";
 
 const LoginForm = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+
+  // Debug current location changes
+  useEffect(() => {
+    console.log('Current location changed to:', location.pathname);
+  }, [location.pathname]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -24,7 +32,6 @@ const LoginForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Basic validation
     if (!formData.email || !formData.password) {
       toast({
         variant: "destructive",
@@ -46,25 +53,56 @@ const LoginForm = () => {
     setIsLoading(true);
     
     try {
-      // Mock successful login
+      const loginRequest: LoginRequest = {
+        email: formData.email,
+        password: formData.password,
+      };
+
+      console.log('About to call websocketService.loginUser');
+      const user = await websocketService.loginUser(loginRequest);
+      console.log('Login successful, user received:', user);
+      
+      localStorage.setItem('user', JSON.stringify(user));
+      console.log('User data stored in localStorage');
+      
+      console.log('About to navigate to /home, current location:', location.pathname);
+      console.log('Navigate function type:', typeof navigate);
+      
+      // Try immediate navigation
+      navigate('/home', { replace: true });
+      console.log('Navigate called');
+      
+      // Also try with a small delay to see if timing is the issue
       setTimeout(() => {
-        toast({
-          title: "Success",
-          description: "Logged in successfully",
-        });
-        
-        // Redirect to home page
-        navigate('/home');
-      }, 1000); // Simulate some delay
+        console.log('Delayed navigation attempt, current location:', window.location.pathname);
+        if (window.location.pathname !== '/home') {
+          console.log('Navigation failed, trying again...');
+          navigate('/home', { replace: true });
+        }
+      }, 100);
       
     } catch (error) {
+      console.error('Login error caught:', error);
+      
+      // Always reset loading state on error
+      setIsLoading(false);
+      
+      // Show appropriate error message based on error type
+      let errorMessage = "The user details are incorrect. Please check your email and password and try again.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('server may be unavailable')) {
+          errorMessage = "Unable to connect to server. Please check your connection and try again.";
+        } else if (error.message.includes('Failed to connect')) {
+          errorMessage = "Connection failed. Please try again later.";
+        }
+      }
+      
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Login failed",
+        title: "Login Failed",
+        description: errorMessage,
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
