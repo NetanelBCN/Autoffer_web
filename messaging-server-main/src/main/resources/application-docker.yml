@@ -1,0 +1,4 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb://root:secret@mongodb:27017/messagingdb?authSource=admin

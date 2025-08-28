@@ -1,0 +1,26 @@
+server:
+  port: ${PORT:8080}
+  address: 0.0.0.0
+
+spring:
+  rsocket:
+    server:
+      transport: websocket
+      mapping-path: /rsocket
+      keep-alive:
+        interval: 20000
+        timeout: 90000
+      data-mime-type: application/json
+      metadata-mime-type: message/x.rsocket.composite-metadata.v0
+
+
+  data:
+    mongodb:
+      uri: mongodb+srv://roeihakmon:FvEleLgyd6bluJ6x@cluster0.acblw.mongodb.net/messaging-db?retryWrites=true&w=majority&appName=Cluster0
+
+logging:
+  level:
+    org.springframework.rsocket: DEBUG
+    org.springframework.data.mongodb: INFO
+    io.rsocket: DEBUG
+

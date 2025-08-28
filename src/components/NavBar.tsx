@@ -1,10 +1,11 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Home, ShoppingCart, FolderOpen, UserRound, Settings, Contact, Briefcase } from "lucide-react";
+import { Home, ShoppingCart, FolderOpen, UserRound, Settings, Contact, Briefcase, LogOut } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useCart } from "@/context/CartContext";
 import CartDialog from "./CartDialog";
 import { useState } from "react";
-import { UserModel } from "@/services/websocketService";
+import { UserModel, websocketService } from "@/services/websocketService";
+import { useNavigate } from "react-router-dom";
 
 interface NavBarProps {
   activeSection: string;
@@ -13,9 +14,34 @@ interface NavBarProps {
 }
 
 const NavBar = ({ activeSection, onSectionChange, userData }: NavBarProps) => {
+  const navigate = useNavigate();
+  
   const handleClick = (section: string, e: React.MouseEvent) => {
     e.preventDefault();
     onSectionChange(section);
+  };
+
+  const handleSignOut = () => {
+    console.log('🔒 Starting sign out process...');
+    
+    // Clear user data from localStorage
+    localStorage.removeItem('user');
+    
+    // Clear any other cached data if needed
+    localStorage.clear();
+    
+    // Disconnect websocket service
+    websocketService.disconnect();
+    
+    console.log('🔒 Data cleared, navigating to login...');
+    
+    // Navigate to login page and prevent going back
+    navigate('/', { replace: true });
+    
+    // Force a hard navigation to ensure clean state
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 100);
   };
 
   const getLinkClasses = (section: string) => {
@@ -127,6 +153,14 @@ const NavBar = ({ activeSection, onSectionChange, userData }: NavBarProps) => {
                 >
                   <Contact size={16} />
                   <span>Contact Us</span>
+                </button>
+                <div className="border-t border-gray-200 my-1"></div>
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
+                >
+                  <LogOut size={16} />
+                  <span>Sign Out</span>
                 </button>
               </div>
             </PopoverContent>
