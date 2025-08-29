@@ -67,17 +67,17 @@ const ProfitLossReportDialog = ({ open, onClose, userData }: ProfitLossReportDia
       const response = await websocketService.getProjectsForUser(userData.id, 'FACTORY');
       
       if (Array.isArray(response)) {
-        // Filter only projects where current factory has ACCEPTED status
-        const acceptedProjects = response.filter(project => 
-          project.quoteStatuses[userData.id] === 'ACCEPTED'
+        // Show all projects that the factory has responded to (not just accepted)
+        const respondedProjects = response.filter(project => 
+          project.quoteStatuses[userData.id] && project.quoteStatuses[userData.id] !== 'PENDING'
         );
-        setProjects(acceptedProjects);
+        setProjects(respondedProjects);
       } else {
         console.error('Invalid response format:', response);
         setProjects([]);
       }
     } catch (error) {
-      console.error('Failed to load accepted projects:', error);
+      console.error('Failed to load projects:', error);
       setProjects([]);
     } finally {
       setLoading(false);
@@ -91,26 +91,47 @@ const ProfitLossReportDialog = ({ open, onClose, userData }: ProfitLossReportDia
 
   const calculateProjectValue = (items: ProjectItem[]) => {
     return items.reduce((total, item) => {
-      const profileCost = (item.height + item.width) * 2 * item.profile.pricePerMeter * item.quantity;
-      const glassCost = (item.height * item.width) * item.glass.pricePerSquareMeter * item.quantity;
+      const profileCost = (item.height + item.width) * 2 * item.profile.pricePerMeter * item.quantity / 100; // Convert cm to meters
+      const glassCost = (item.height * item.width) * item.glass.pricePerSquareMeter * item.quantity / 10000; // Convert cm² to m²
       return total + profileCost + glassCost;
     }, 0);
   };
 
+  const calculateItemCosts = (item: ProjectItem) => {
+    const profileCost = (item.height + item.width) * 2 * item.profile.pricePerMeter * item.quantity / 100; // Convert cm to meters
+    const glassCost = (item.height * item.width) * item.glass.pricePerSquareMeter * item.quantity / 10000; // Convert cm² to m²
+    return { profileCost, glassCost, total: profileCost + glassCost };
+  };
+
   const calculateProfitReport = (project: Project) => {
-    const factorPercentage = userData?.factor || 0;
-    const factorValue = factorPercentage / 100;
+    const factorValue = userData?.factor || 1.0; // Factor is already the multiplier (e.g., 1.25), not percentage
     const totalCost = calculateProjectValue(project.items);
-    const totalWithFactor = totalCost * (1 + factorValue);
+    const totalWithFactor = totalCost * factorValue;
     const profit = totalWithFactor - totalCost;
-    const profitMargin = ((profit / totalWithFactor) * 100);
+    const profitMargin = totalCost > 0 ? ((profit / totalWithFactor) * 100) : 0;
+
+    // Calculate detailed breakdown per item
+    const itemBreakdown = project.items.map(item => {
+      const itemCosts = calculateItemCosts(item);
+      const itemWithFactor = itemCosts.total * factorValue;
+      const itemProfit = itemWithFactor - itemCosts.total;
+      
+      return {
+        ...item,
+        ...itemCosts,
+        totalWithFactor: itemWithFactor,
+        profit: itemProfit
+      };
+    });
 
     return {
       totalCost,
-      factorPercentage,
+      factorValue,
+      factorPercentage: ((factorValue - 1) * 100), // Convert factor to percentage for display
       totalWithFactor,
       profit,
-      profitMargin
+      profitMargin,
+      itemBreakdown
     };
   };
 
@@ -139,7 +160,7 @@ const ProfitLossReportDialog = ({ open, onClose, userData }: ProfitLossReportDia
           <>
             <div className="mb-4">
               <h3 className="text-lg font-semibold mb-2">Select a Project</h3>
-              <p className="text-gray-600 text-sm">Choose a project to generate the profit/loss report:</p>
+              <p className="text-gray-600 text-sm">Choose from all your projects to generate the profit/loss report:</p>
             </div>
             
             <div className="space-y-3 max-h-96 overflow-y-auto">
@@ -152,8 +173,17 @@ const ProfitLossReportDialog = ({ open, onClose, userData }: ProfitLossReportDia
                         <h4 className="font-medium text-gray-900">Project #{project.projectId.slice(-6)}</h4>
                         <p className="text-sm text-gray-600 mt-1">Address: {project.projectAddress}</p>
                         <div className="flex items-center space-x-2 mt-2">
-                          <Badge variant="default" className="bg-green-100 text-green-800">
-                            ACCEPTED
+                          <Badge 
+                            variant="outline" 
+                            className={
+                              project.quoteStatuses[userData?.id || ''] === 'ACCEPTED' 
+                                ? 'bg-green-100 text-green-800 border-green-200'
+                                : project.quoteStatuses[userData?.id || ''] === 'REJECTED'
+                                ? 'bg-red-100 text-red-800 border-red-200'
+                                : 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                            }
+                          >
+                            {project.quoteStatuses[userData?.id || ''] || 'UNKNOWN'}
                           </Badge>
                           <span className="text-sm text-gray-500">
                             {project.items.length} items
@@ -186,106 +216,122 @@ const ProfitLossReportDialog = ({ open, onClose, userData }: ProfitLossReportDia
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="text-xl font-bold text-gray-900 mb-2">Project #{selectedProject.projectId.slice(-6)}</h3>
               <p className="text-gray-600">Address: {selectedProject.projectAddress}</p>
-              <p className="text-gray-600">Status: <Badge variant="outline" className="bg-green-100 text-green-800">ACCEPTED</Badge></p>
+              <p className="text-gray-600 flex items-center">
+                Status: 
+                <Badge 
+                  variant="outline" 
+                  className={`ml-2 ${
+                    selectedProject.quoteStatuses[userData?.id || ''] === 'ACCEPTED' 
+                      ? 'bg-green-100 text-green-800 border-green-200'
+                      : selectedProject.quoteStatuses[userData?.id || ''] === 'REJECTED'
+                      ? 'bg-red-100 text-red-800 border-red-200'
+                      : 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                  }`}
+                >
+                  {selectedProject.quoteStatuses[userData?.id || ''] || 'UNKNOWN'}
+                </Badge>
+              </p>
             </div>
 
-            {/* Detailed Items Breakdown */}
-            <div>
-              <h4 className="text-lg font-semibold mb-3 flex items-center">
-                <Calculator className="h-4 w-4 mr-2" />
-                Project Items Breakdown
-              </h4>
-              <div className="space-y-2">
-                {selectedProject.items.map((item, index) => {
-                  const profileCost = (item.height + item.width) * 2 * item.profile.pricePerMeter * item.quantity;
-                  const glassCost = (item.height * item.width) * item.glass.pricePerSquareMeter * item.quantity;
-                  const itemTotal = profileCost + glassCost;
-                  
-                  return (
-                    <Card key={index}>
-                      <CardContent className="p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">Item #{item.itemNumber}</p>
-                            <p className="text-xs text-gray-600">
-                              Profile: {item.profile.profileNumber} ({item.width}×{item.height}cm)
-                            </p>
-                            <p className="text-xs text-gray-600">
-                              Glass: {item.glass.type} {item.glass.thickness}mm | Qty: {item.quantity} | {item.location}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold">{formatCurrency(itemTotal)}</p>
-                            <p className="text-xs text-gray-500">
-                              Profile: {formatCurrency(profileCost)}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Glass: {formatCurrency(glassCost)}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Profit Calculations */}
-            <div>
-              <h4 className="text-lg font-semibold mb-3 flex items-center">
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Profit Analysis
-              </h4>
-              
-              {(() => {
-                const report = calculateProfitReport(selectedProject);
-                return (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <Card>
-                        <CardContent className="p-4 text-center">
-                          <DollarSign className="h-6 w-6 text-gray-600 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600">Total Cost</p>
-                          <p className="text-xl font-bold text-gray-900">{formatCurrency(report.totalCost)}</p>
-                        </CardContent>
-                      </Card>
-                      
-                      <Card>
-                        <CardContent className="p-4 text-center">
-                          <Calculator className="h-6 w-6 text-blue-600 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600">With Factory Factor ({report.factorPercentage}%)</p>
-                          <p className="text-xl font-bold text-blue-900">{formatCurrency(report.totalWithFactor)}</p>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    <Card className="border-green-200 bg-green-50">
-                      <CardContent className="p-4">
-                        <div className="text-center">
-                          <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                          <p className="text-sm text-green-700 mb-1">Total Factory Profit</p>
-                          <p className="text-3xl font-bold text-green-800">{formatCurrency(report.profit)}</p>
-                          <p className="text-sm text-green-600 mt-1">
-                            Profit Margin: {report.profitMargin.toFixed(1)}%
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <div className="text-xs text-gray-500 mt-4">
-                      <p><strong>Calculation:</strong></p>
-                      <p>• Base Cost: {formatCurrency(report.totalCost)}</p>
-                      <p>• Factory Factor: {report.factorPercentage}%</p>
-                      <p>• Total with Factor: {formatCurrency(report.totalCost)} × (1 + {report.factorPercentage}%) = {formatCurrency(report.totalWithFactor)}</p>
-                      <p>• Profit: {formatCurrency(report.totalWithFactor)} - {formatCurrency(report.totalCost)} = {formatCurrency(report.profit)}</p>
+            {(() => {
+              const report = calculateProfitReport(selectedProject);
+              return (
+                <>
+                  {/* Detailed Items Breakdown */}
+                  <div>
+                    <h4 className="text-lg font-semibold mb-3 flex items-center">
+                      <Calculator className="h-4 w-4 mr-2" />
+                      Project Items Breakdown (with Factor {report.factorValue.toFixed(2)})
+                    </h4>
+                    <div className="space-y-2">
+                      {report.itemBreakdown.map((item, index) => (
+                        <Card key={index}>
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">Item #{item.itemNumber}</p>
+                                <p className="text-xs text-gray-600">
+                                  Profile: {item.profile.profileNumber} ({item.width}×{item.height}cm)
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                  Glass: {item.glass.type} {item.glass.thickness}mm | Qty: {item.quantity} | {item.location}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-semibold text-blue-600">{formatCurrency(item.totalWithFactor)}</p>
+                                <p className="text-xs text-gray-500">
+                                  Base: {formatCurrency(item.total)}
+                                </p>
+                                <p className="text-xs text-green-600">
+                                  Profit: {formatCurrency(item.profit)}
+                                </p>
+                                <div className="text-xs text-gray-400 mt-1">
+                                  <div>Profile: {formatCurrency(item.profileCost)}</div>
+                                  <div>Glass: {formatCurrency(item.glassCost)}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
                   </div>
-                );
-              })()}
-            </div>
+
+                  <Separator />
+
+                  {/* Profit Calculations */}
+                  <div>
+                    <h4 className="text-lg font-semibold mb-3 flex items-center">
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      Profit Analysis Summary
+                    </h4>
+                    
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-4">
+                        <Card>
+                          <CardContent className="p-4 text-center">
+                            <DollarSign className="h-6 w-6 text-gray-600 mx-auto mb-2" />
+                            <p className="text-sm text-gray-600">Total Base Cost</p>
+                            <p className="text-xl font-bold text-gray-900">{formatCurrency(report.totalCost)}</p>
+                          </CardContent>
+                        </Card>
+                        
+                        <Card>
+                          <CardContent className="p-4 text-center">
+                            <Calculator className="h-6 w-6 text-blue-600 mx-auto mb-2" />
+                            <p className="text-sm text-gray-600">With Factor {report.factorValue.toFixed(2)}</p>
+                            <p className="text-xl font-bold text-blue-900">{formatCurrency(report.totalWithFactor)}</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <Card className="border-green-200 bg-green-50">
+                        <CardContent className="p-4">
+                          <div className="text-center">
+                            <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                            <p className="text-sm text-green-700 mb-1">Total Project Profit</p>
+                            <p className="text-3xl font-bold text-green-800">{formatCurrency(report.profit)}</p>
+                            <p className="text-sm text-green-600 mt-1">
+                              Profit Margin: {report.profitMargin.toFixed(1)}%
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <div className="text-xs text-gray-500 mt-4 bg-gray-50 p-3 rounded-lg">
+                        <p><strong>Calculation Details:</strong></p>
+                        <p>• Base Cost: {formatCurrency(report.totalCost)}</p>
+                        <p>• Factory Factor: {report.factorValue.toFixed(2)} ({report.factorPercentage.toFixed(1)}% markup)</p>
+                        <p>• Total with Factor: {formatCurrency(report.totalCost)} × {report.factorValue.toFixed(2)} = {formatCurrency(report.totalWithFactor)}</p>
+                        <p>• Profit: {formatCurrency(report.totalWithFactor)} - {formatCurrency(report.totalCost)} = {formatCurrency(report.profit)}</p>
+                        <p className="mt-2 text-blue-600"><strong>Note:</strong> All measurements converted from cm to appropriate units (meters for profiles, m² for glass)</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+
           </div>
         )}
       </DialogContent>

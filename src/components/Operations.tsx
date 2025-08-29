@@ -9,16 +9,19 @@ import {
 } from "@/components/ui/collapsible";
 import GlazingReportDialog from "./GlazingReportDialog";
 import ProfitLossReportDialog from "./ProfitLossReportDialog";
+import FactorEditDialog from "./FactorEditDialog";
 import { UserModel } from "@/services/websocketService";
 
 interface OperationsProps {
   userData: UserModel | null;
+  onUserDataUpdated: (updatedUser: UserModel) => void;
 }
 
-const Operations = ({ userData }: OperationsProps) => {
+const Operations = ({ userData, onUserDataUpdated }: OperationsProps) => {
   const [openReports, setOpenReports] = useState(false);
   const [profitLossDialogOpen, setProfitLossDialogOpen] = useState(false);
   const [glazingDialogOpen, setGlazingDialogOpen] = useState(false);
+  const [factorDialogOpen, setFactorDialogOpen] = useState(false);
 
   const reportTypes = [
     { 
@@ -129,8 +132,11 @@ const Operations = ({ userData }: OperationsProps) => {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-1 flex items-end">
-            <Button className="w-full bg-black text-white hover:bg-gray-800">
-              Modify Factor %
+            <Button 
+              className="w-full bg-black text-white hover:bg-gray-800"
+              onClick={() => setFactorDialogOpen(true)}
+            >
+              Modify Factor % (Current: {userData?.factor?.toFixed(2) || 'N/A'})
             </Button>
           </CardContent>
         </Card>
@@ -146,6 +152,12 @@ const Operations = ({ userData }: OperationsProps) => {
         open={glazingDialogOpen}
         onClose={() => setGlazingDialogOpen(false)}
         userData={userData}
+      />
+      <FactorEditDialog 
+        open={factorDialogOpen}
+        onClose={() => setFactorDialogOpen(false)}
+        userData={userData}
+        onFactorUpdated={onUserDataUpdated}
       />
     </div>
   );

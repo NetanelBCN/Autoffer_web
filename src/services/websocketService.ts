@@ -22,6 +22,7 @@ export interface UserModel {
   registeredAt: string;
   chats: string[];
   photoBytes: number[] | null;
+  factor: number;
 }
 
 export interface ChatRequest {
@@ -723,6 +724,55 @@ class WebSocketService {
     } catch (error) {
       console.error('🔍 Failed to fetch projects:', error);
       return [];
+    }
+  }
+
+  async updateUserFactor(userId: string, factor: number): Promise<UserModel | null> {
+    try {
+      console.log('🔍 Updating user factor:', userId, 'to:', factor);
+      const rsocket = await this.connect();
+      const route = 'users.updateFactor';
+      
+      const request = { userId, factor };
+      const payload: Payload = {
+        data: (globalThis as any).Buffer.from(JSON.stringify(request), 'utf8'),
+        metadata: this.createRouteMetadata(route),
+      };
+
+      return new Promise<UserModel | null>((resolve, reject) => {
+        rsocket.requestResponse(payload, {
+          onNext(payload: Payload) {
+            console.log('🔍 Update factor response received:', payload);
+            if (payload.data) {
+              try {
+                const updatedUser: UserModel = JSON.parse(payload.data.toString('utf8'));
+                console.log('🔍 User factor updated successfully:', updatedUser);
+                resolve(updatedUser);
+              } catch (e) {
+                console.error('🔍 Failed to parse updated user data:', e);
+                resolve(null);
+              }
+            } else {
+              console.log('🔍 No updated user data received');
+              resolve(null);
+            }
+          },
+          onError(err: Error) {
+            console.error('🔍 Update factor request error:', err);
+            reject(err);
+          },
+          onComplete() {
+            console.log('🔍 Update factor request completed without data');
+            resolve(null);
+          },
+          onExtension() {
+            // Handle extension if needed
+          }
+        });
+      });
+    } catch (error) {
+      console.error('🔍 Failed to update user factor:', error);
+      return null;
     }
   }
 
