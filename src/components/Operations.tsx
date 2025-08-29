@@ -7,14 +7,35 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import GlazingReportDialog from "./GlazingReportDialog";
+import ProfitLossReportDialog from "./ProfitLossReportDialog";
+import { UserModel } from "@/services/websocketService";
 
-const Operations = () => {
+interface OperationsProps {
+  userData: UserModel | null;
+}
+
+const Operations = ({ userData }: OperationsProps) => {
   const [openReports, setOpenReports] = useState(false);
+  const [profitLossDialogOpen, setProfitLossDialogOpen] = useState(false);
+  const [glazingDialogOpen, setGlazingDialogOpen] = useState(false);
 
   const reportTypes = [
-    { name: "Profit/Loss Report", description: "Financial performance analysis" },
-    { name: "Glazing Report", description: "Glass installation and materials report" },
-    { name: "Time Period Report", description: "Activity summary for specific periods" }
+    { 
+      name: "Profit/Loss Report", 
+      description: "Financial performance analysis",
+      onClick: () => setProfitLossDialogOpen(true)
+    },
+    { 
+      name: "Glazing Report", 
+      description: "Glass installation and materials report",
+      onClick: () => setGlazingDialogOpen(true)
+    },
+    { 
+      name: "Time Period Report", 
+      description: "Activity summary for specific periods",
+      onClick: () => console.log('Time Period Report - Coming soon')
+    }
   ];
 
   return (
@@ -83,7 +104,7 @@ const Operations = () => {
                     key={index}
                     variant="ghost"
                     className="w-full justify-start text-left h-auto p-3 hover:bg-black hover:text-white"
-                    onClick={() => console.log(`Creating ${report.name}`)}
+                    onClick={report.onClick}
                   >
                     <div>
                       <div className="font-medium">{report.name}</div>
@@ -114,6 +135,18 @@ const Operations = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Report Dialogs */}
+      <ProfitLossReportDialog 
+        open={profitLossDialogOpen}
+        onClose={() => setProfitLossDialogOpen(false)}
+        userData={userData}
+      />
+      <GlazingReportDialog 
+        open={glazingDialogOpen}
+        onClose={() => setGlazingDialogOpen(false)}
+        userData={userData}
+      />
     </div>
   );
 };

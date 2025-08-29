@@ -680,6 +680,52 @@ class WebSocketService {
     }
   }
 
+  async getProjectsForUser(userId: string, userType: 'CLIENT' | 'FACTORY'): Promise<any[]> {
+    try {
+      console.log('🔍 Fetching projects for user:', userId, 'type:', userType);
+      const rsocket = await this.connect();
+      const route = 'projects.getForUser';
+      
+      const request = { userId, userType };
+      const payload: Payload = {
+        data: (globalThis as any).Buffer.from(JSON.stringify(request), 'utf8'),
+        metadata: this.createRouteMetadata(route),
+      };
+
+      return new Promise<any[]>((resolve, reject) => {
+        const projects: any[] = [];
+        
+        rsocket.requestStream(payload, 2147483647, {
+          onNext(payload: Payload) {
+            if (payload.data) {
+              try {
+                const project = JSON.parse(payload.data.toString('utf8'));
+                console.log('🔍 Received project:', project);
+                projects.push(project);
+              } catch (e) {
+                console.error('🔍 Failed to parse project data:', e);
+              }
+            }
+          },
+          onError(err: Error) {
+            console.error('🔍 Projects request error:', err);
+            reject(err);
+          },
+          onComplete() {
+            console.log('🔍 Projects request completed, total:', projects.length);
+            resolve(projects);
+          },
+          onExtension() {
+            // Handle extension if needed
+          }
+        });
+      });
+    } catch (error) {
+      console.error('🔍 Failed to fetch projects:', error);
+      return [];
+    }
+  }
+
   async getBOQPdf(projectId: string): Promise<Uint8Array | null> {
     try {
       console.log('🔍 Fetching BOQ PDF for project:', projectId);
