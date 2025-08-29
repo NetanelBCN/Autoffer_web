@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useChat } from '@/context/ChatContext';
 import { websocketService } from '@/services/websocketService';
-import { X, Send, ArrowLeft, FileText, Download, Eye } from 'lucide-react';
+import { X, Send, ArrowLeft, FileText, Download, Eye, Calculator } from 'lucide-react';
 
 interface ChatWindowProps {
   customerId: string;
@@ -131,6 +131,32 @@ const ChatWindow = ({ customerId, position }: ChatWindowProps) => {
     }
   };
 
+  // Handler for creating quote from BOQ
+  const handleCreateQuote = async (fileName: string, hasFileData: boolean) => {
+    console.log('Creating quote from BOQ:', fileName, 'Has file data:', hasFileData);
+    
+    try {
+      const projectId = extractProjectIdFromBOQ(fileName);
+      if (!projectId) {
+        alert('Could not extract project ID from filename');
+        return;
+      }
+
+      // TODO: Navigate to quote creation page or open quote creation dialog
+      console.log('🔍 Creating quote for project:', projectId);
+      alert(`Quote creation feature coming soon!\n\nProject ID: ${projectId}\nBOQ File: ${fileName}`);
+      
+      // Future implementation could:
+      // 1. Navigate to operations page with BOQ pre-loaded
+      // 2. Open a quote creation dialog
+      // 3. Redirect to a dedicated quote builder
+      
+    } catch (error) {
+      console.error('Failed to create quote from BOQ:', error);
+      alert('Failed to initialize quote creation. Please try again.');
+    }
+  };
+
   // Handler for downloading BOQ file
   const handleDownloadBOQ = async (fileName: string, hasFileData: boolean) => {
     console.log('Downloading BOQ file:', fileName, 'Has file data:', hasFileData);
@@ -238,44 +264,84 @@ const ChatWindow = ({ customerId, position }: ChatWindowProps) => {
                 }`}
               >
                 {boqInfo.isBoqFile ? (
-                  <div className="space-y-2">
+                  <div className="w-full">
                     {/* Display any additional text */}
                     {boqInfo.displayText && (
-                      <p className="mb-2">{boqInfo.displayText}</p>
+                      <p className="mb-3">{boqInfo.displayText}</p>
                     )}
                     
-                    {/* BOQ File Component */}
-                    <div className={`border rounded-lg p-3 ${
+                    {/* Enhanced BOQ File Card */}
+                    <div className={`border-2 rounded-xl p-4 shadow-md ${
                       message.isFromCustomer 
-                        ? 'border-gray-300 bg-white' 
-                        : 'border-gray-600 bg-gray-800'
+                        ? 'border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100' 
+                        : 'border-blue-400 bg-gradient-to-br from-blue-800 to-blue-900'
                     }`}>
-                      <div className="flex items-center space-x-2 mb-2">
-                        <FileText className="h-5 w-5 text-red-500" />
-                        <div className="flex-1">
-                          <p className="font-medium text-xs">BOQ Document</p>
-                          <p className="text-xs opacity-75">{boqInfo.fileName}</p>
+                      {/* Header with BOQ icon and title */}
+                      <div className="flex items-center justify-center mb-4">
+                        <div className={`p-3 rounded-full ${
+                          message.isFromCustomer 
+                            ? 'bg-blue-500 text-white' 
+                            : 'bg-blue-300 text-blue-900'
+                        }`}>
+                          <FileText className="h-6 w-6" />
                         </div>
                       </div>
                       
-                      <div className="flex space-x-2">
+                      <div className="text-center mb-4">
+                        <p className={`font-semibold text-sm ${
+                          message.isFromCustomer ? 'text-blue-900' : 'text-blue-100'
+                        }`}>
+                          BOQ Document
+                        </p>
+                        <p className={`text-xs mt-1 ${
+                          message.isFromCustomer ? 'text-blue-700' : 'text-blue-300'
+                        }`}>
+                          {boqInfo.fileName}
+                        </p>
+                      </div>
+                      
+                      {/* Action buttons - Icons only */}
+                      <div className="flex justify-center space-x-3">
                         <Button
-                          size="sm"
+                          size="icon"
                           variant={message.isFromCustomer ? "default" : "secondary"}
                           onClick={() => handleViewBOQ(boqInfo.fileName, boqInfo.hasFileData)}
-                          className="h-7 text-xs px-2"
+                          className={`h-10 w-10 rounded-full shadow-lg ${
+                            message.isFromCustomer 
+                              ? 'bg-green-500 hover:bg-green-600 text-white' 
+                              : 'bg-green-400 hover:bg-green-500 text-green-900'
+                          }`}
+                          title="View BOQ"
                         >
-                          <Eye className="h-3 w-3 mr-1" />
-                          View
+                          <Eye className="h-4 w-4" />
                         </Button>
+                        
                         <Button
-                          size="sm"
-                          variant={message.isFromCustomer ? "outline" : "outline"}
+                          size="icon"
+                          variant={message.isFromCustomer ? "default" : "secondary"}
                           onClick={() => handleDownloadBOQ(boqInfo.fileName, boqInfo.hasFileData)}
-                          className="h-7 text-xs px-2"
+                          className={`h-10 w-10 rounded-full shadow-lg ${
+                            message.isFromCustomer 
+                              ? 'bg-blue-500 hover:bg-blue-600 text-white' 
+                              : 'bg-blue-400 hover:bg-blue-500 text-blue-900'
+                          }`}
+                          title="Download BOQ"
                         >
-                          <Download className="h-3 w-3 mr-1" />
-                          Download
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        
+                        <Button
+                          size="icon"
+                          variant={message.isFromCustomer ? "default" : "secondary"}
+                          onClick={() => handleCreateQuote(boqInfo.fileName, boqInfo.hasFileData)}
+                          className={`h-10 w-10 rounded-full shadow-lg ${
+                            message.isFromCustomer 
+                              ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                              : 'bg-orange-400 hover:bg-orange-500 text-orange-900'
+                          }`}
+                          title="Create Quote"
+                        >
+                          <Calculator className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
