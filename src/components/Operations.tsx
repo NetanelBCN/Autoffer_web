@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Calculator, BarChart3, Percent, ChevronDown } from "lucide-react";
+import { FileText, Calculator, BarChart3, ChevronDown } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/collapsible";
 import GlazingReportDialog from "./GlazingReportDialog";
 import ProfitLossReportDialog from "./ProfitLossReportDialog";
+import ManualPriceOfferDialog from "./ManualPriceOfferDialog";
 import { UserModel } from "@/services/websocketService";
 
 interface OperationsProps {
@@ -19,6 +20,7 @@ const Operations = ({ userData }: OperationsProps) => {
   const [openReports, setOpenReports] = useState(false);
   const [profitLossDialogOpen, setProfitLossDialogOpen] = useState(false);
   const [glazingDialogOpen, setGlazingDialogOpen] = useState(false);
+  const [manualOfferDialogOpen, setManualOfferDialogOpen] = useState(false);
 
   const reportTypes = [
     { 
@@ -55,7 +57,10 @@ const Operations = ({ userData }: OperationsProps) => {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-1 flex items-end">
-            <Button className="w-full bg-black text-white hover:bg-gray-800">
+            <Button 
+              className="w-full bg-black text-white hover:bg-gray-800"
+              onClick={() => setManualOfferDialogOpen(true)}
+            >
               Create Manual Offer
             </Button>
           </CardContent>
@@ -118,7 +123,12 @@ const Operations = ({ userData }: OperationsProps) => {
         </Card>
       </div>
       
-      {/* Report Dialogs */}
+      {/* Dialogs */}
+      <ManualPriceOfferDialog 
+        open={manualOfferDialogOpen}
+        onClose={() => setManualOfferDialogOpen(false)}
+        userData={userData}
+      />
       <ProfitLossReportDialog 
         open={profitLossDialogOpen}
         onClose={() => setProfitLossDialogOpen(false)}

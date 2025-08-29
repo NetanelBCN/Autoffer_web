@@ -894,6 +894,93 @@ class WebSocketService {
     }
   }
 
+  async getAluminumProfiles(height: number, width: number): Promise<any[]> {
+    try {
+      console.log('🔧 STARTING - Fetching aluminum profiles for dimensions:', { height, width });
+      const rsocket = await this.connect();
+      console.log('🔧 RSocket connection established successfully');
+      
+      const route = 'profiles.getByDimensions';
+      const request = { height, width };
+      
+      console.log('🔧 Using route:', route);
+      console.log('🔧 Request payload:', JSON.stringify(request));
+      
+      const payload: Payload = {
+        data: (globalThis as any).Buffer.from(JSON.stringify(request), 'utf8'),
+        metadata: this.createRouteMetadata(route),
+      };
+
+      console.log('🔧 Payload created, sending requestStream...');
+
+      return new Promise<any[]>((resolve) => {
+        const profiles: any[] = [];
+        let hasReceivedData = false;
+        let messageCount = 0;
+        
+        // Add timeout to prevent hanging
+        const timeout = setTimeout(() => {
+          if (!hasReceivedData) {
+            console.log('🔧 ❌ TIMEOUT - Aluminum profiles request timed out after 10 seconds');
+            console.log('🔧 ❌ This likely means the backend route "profiles.getByDimensions" does not exist');
+            resolve([]);
+          }
+        }, 10000);
+        
+        rsocket.requestStream(payload, 2147483647, {
+          onNext(payload: Payload) {
+            messageCount++;
+            hasReceivedData = true;
+            console.log('🔧 ✅ onNext called - message #', messageCount);
+            
+            if (payload.data) {
+              try {
+                const rawData = payload.data.toString('utf8');
+                console.log('🔧 Raw profile data received:', rawData);
+                
+                const profile = JSON.parse(rawData);
+                console.log('🔧 ✅ Parsed aluminum profile successfully:', profile);
+                console.log('🔧 Profile details - Number:', profile.profileNumber, 'UsageType:', profile.usageType);
+                profiles.push(profile);
+              } catch (e) {
+                console.error('🔧 ❌ Failed to parse aluminum profile data:', e);
+                console.error('🔧 Raw data that failed to parse:', payload.data.toString('utf8'));
+              }
+            } else {
+              console.log('🔧 ⚠️  onNext called but no data in payload');
+            }
+          },
+          onError(err: Error) {
+            clearTimeout(timeout);
+            console.error('🔧 ❌ STREAM ERROR - Aluminum profiles request failed:', err);
+            console.error('🔧 ❌ Error details:', {
+              name: err.name,
+              message: err.message,
+              stack: err.stack
+            });
+            console.log('🔧 ❌ This confirms the server route "profiles.getByDimensions" does not exist or has errors');
+            resolve([]);
+          },
+          onComplete() {
+            clearTimeout(timeout);
+            console.log('🔧 ✅ STREAM COMPLETED - Aluminum profiles request finished');
+            console.log('🔧 ✅ Total messages received:', messageCount);
+            console.log('🔧 ✅ Total profiles parsed:', profiles.length);
+            console.log('🔧 ✅ Final profiles array:', profiles);
+            resolve(profiles);
+          },
+          onExtension() {
+            console.log('🔧 📝 onExtension called');
+          }
+        });
+      });
+    } catch (error) {
+      console.error('🔧 ❌ OUTER CATCH - Failed to fetch aluminum profiles:', error);
+      console.log('🔧 ❌ Connection or setup error, returning empty profiles array');
+      return [];
+    }
+  }
+
   disconnect() {
     if (this.rsocket) {
       this.rsocket.close();
