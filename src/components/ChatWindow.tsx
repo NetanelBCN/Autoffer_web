@@ -257,7 +257,9 @@ const ChatWindow = ({ customerId, position }: ChatWindowProps) => {
               className={`flex ${message.isFromCustomer ? 'justify-start' : 'justify-end'}`}
             >
               <div
-                className={`max-w-[70%] rounded-lg px-3 py-2 text-sm ${
+                className={`${
+                  boqInfo.isBoqFile ? 'max-w-[85%]' : 'max-w-[70%]'
+                } rounded-lg px-3 py-2 text-sm ${
                   message.isFromCustomer
                     ? 'bg-gray-100 text-gray-900'
                     : 'bg-gray-900 text-white'
@@ -293,10 +295,13 @@ const ChatWindow = ({ customerId, position }: ChatWindowProps) => {
                         }`}>
                           BOQ Document
                         </p>
-                        <p className={`text-xs mt-1 ${
+                        <p className={`text-xs mt-1 break-words px-2 leading-relaxed ${
                           message.isFromCustomer ? 'text-blue-700' : 'text-blue-300'
                         }`}>
-                          {boqInfo.fileName}
+                          {boqInfo.fileName.length > 50 
+                            ? `${boqInfo.fileName.substring(0, 25)}...${boqInfo.fileName.slice(-15)}`
+                            : boqInfo.fileName
+                          }
                         </p>
                       </div>
                       
