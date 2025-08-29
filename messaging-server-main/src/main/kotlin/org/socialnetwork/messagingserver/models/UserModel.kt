@@ -23,6 +23,8 @@ open class UserModel(
     @JsonFormat(pattern = "dd-MM-yyyy HH:mm:ss")
     open val registeredAt: LocalDateTime = LocalDateTime.now(),
     open val chats: MutableList<String> = mutableListOf(),
-    open val photoBytes: ByteArray? = null
+    open val photoBytes: ByteArray? = null,
+    @Field("factor")
+    open var factor: Double = 1.0
 
 )

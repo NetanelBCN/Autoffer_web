@@ -61,6 +61,7 @@ const Home = () => {
         console.error('Failed to parse user data from localStorage:', error);
       }
     }
+    
   }, []);
 
   const handleNavigateToProjects = () => {

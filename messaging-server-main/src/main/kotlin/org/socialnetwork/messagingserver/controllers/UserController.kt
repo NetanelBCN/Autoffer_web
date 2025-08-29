@@ -56,4 +56,11 @@ class UserController(
         return userService.getUsersByType(t)
             .doOnNext { println("👤 Found user: ${it.firstName}, type: ${it.profileType}") }
     }
+
+    // ✅ עדכון מקדם המפעל
+    @MessageMapping("users.updateFactor")
+    fun updateUserFactor(@Payload request: UpdateUserFactorRequest): Mono<UserModel> {
+        println("🔧 Updating factor for user: ${request.userId} to: ${request.factor}")
+        return userService.updateUserFactor(request.userId, request.factor)
+    }
 }

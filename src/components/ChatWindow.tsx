@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useChat } from '@/context/ChatContext';
 import { websocketService } from '@/services/websocketService';
-import { X, Send, ArrowLeft, FileText, Download, Eye, Calculator } from 'lucide-react';
+import { X, Send, ArrowLeft, FileText, Download, Eye, Calculator, Loader2 } from 'lucide-react';
 
 interface ChatWindowProps {
   customerId: string;
@@ -14,6 +14,8 @@ interface ChatWindowProps {
 const ChatWindow = ({ customerId, position }: ChatWindowProps) => {
   const { customers, messages, closeChatWindow, sendMessage, openCustomerList } = useChat();
   const [newMessage, setNewMessage] = useState('');
+  const [creatingQuotes, setCreatingQuotes] = useState<Set<string>>(new Set());
+  const [generatedQuotes, setGeneratedQuotes] = useState<Set<string>>(new Set());
 
   const customer = customers.find(c => c.id === customerId);
   const customerMessages = messages.filter(m => m.customerId === customerId);
@@ -142,18 +144,90 @@ const ChatWindow = ({ customerId, position }: ChatWindowProps) => {
         return;
       }
 
-      // TODO: Navigate to quote creation page or open quote creation dialog
+      // Check if quote already generated for this project
+      if (generatedQuotes.has(fileName)) {
+        console.log('Quote already generated for this BOQ');
+        return;
+      }
+
       console.log('🔍 Creating quote for project:', projectId);
-      alert(`Quote creation feature coming soon!\n\nProject ID: ${projectId}\nBOQ File: ${fileName}`);
       
-      // Future implementation could:
-      // 1. Navigate to operations page with BOQ pre-loaded
-      // 2. Open a quote creation dialog
-      // 3. Redirect to a dedicated quote builder
+      // Add to creating quotes set to show spinner
+      setCreatingQuotes(prev => new Set(prev).add(fileName));
+      
+      // Get current user data from localStorage
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) {
+        alert('❌ Error: User information not available. Please refresh the page and try again.');
+        setCreatingQuotes(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(fileName);
+          return newSet;
+        });
+        return;
+      }
+      
+      const userData = JSON.parse(storedUser);
+      if (!userData.id) {
+        alert('❌ Error: User ID not available. Please refresh the page and try again.');
+        setCreatingQuotes(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(fileName);
+          return newSet;
+        });
+        return;
+      }
+      
+      // Create quote immediately using the API
+      console.log('🏗️ Creating quote with factory ID:', userData.id);
+      const success = await websocketService.createQuoteFromBOQ(projectId, userData.id);
+      
+      // Remove from creating quotes set
+      setCreatingQuotes(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fileName);
+        return newSet;
+      });
+      
+      if (success) {
+        // Add to generated quotes set
+        setGeneratedQuotes(prev => new Set(prev).add(fileName));
+        
+        alert(`✅ Quote Created Successfully!
+
+Project ID: ${projectId}
+BOQ File: ${fileName}
+Factory ID: ${userData.id}
+Factory Factor: ${userData.factor}
+
+The quote has been generated with your factory factor (${userData.factor}) applied to the BOQ total price.`);
+      } else {
+        alert(`❌ Failed to create quote from BOQ.
+
+Please check:
+- The project exists
+- You have access to create quotes
+- The server is running
+
+Project ID: ${projectId}`);
+      }
       
     } catch (error) {
       console.error('Failed to create quote from BOQ:', error);
-      alert('Failed to initialize quote creation. Please try again.');
+      
+      // Remove from creating quotes set on error
+      setCreatingQuotes(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fileName);
+        return newSet;
+      });
+      
+      alert(`❌ Error creating quote from BOQ:
+
+${error instanceof Error ? error.message : 'Unknown error'}
+
+Project ID: ${extractProjectIdFromBOQ(fileName)}
+Please try again or contact support.`);
     }
   };
 
@@ -339,14 +413,29 @@ const ChatWindow = ({ customerId, position }: ChatWindowProps) => {
                           size="icon"
                           variant={message.isFromCustomer ? "default" : "secondary"}
                           onClick={() => handleCreateQuote(boqInfo.fileName, boqInfo.hasFileData)}
+                          disabled={creatingQuotes.has(boqInfo.fileName) || generatedQuotes.has(boqInfo.fileName)}
                           className={`h-10 w-10 rounded-full shadow-lg ${
-                            message.isFromCustomer 
-                              ? 'bg-orange-500 hover:bg-orange-600 text-white' 
-                              : 'bg-orange-400 hover:bg-orange-500 text-orange-900'
+                            creatingQuotes.has(boqInfo.fileName) || generatedQuotes.has(boqInfo.fileName)
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : message.isFromCustomer 
+                                ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                                : 'bg-orange-400 hover:bg-orange-500 text-orange-900'
                           }`}
-                          title="Create Quote"
+                          title={
+                            generatedQuotes.has(boqInfo.fileName) 
+                              ? "Quote Already Generated" 
+                              : creatingQuotes.has(boqInfo.fileName)
+                                ? "Creating Quote..."
+                                : "Create Quote"
+                          }
                         >
-                          <Calculator className="h-4 w-4" />
+                          {creatingQuotes.has(boqInfo.fileName) ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : generatedQuotes.has(boqInfo.fileName) ? (
+                            <span className="text-xs font-semibold">✓</span>
+                          ) : (
+                            <Calculator className="h-4 w-4" />
+                          )}
                         </Button>
                       </div>
                     </div>

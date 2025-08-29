@@ -7,7 +7,7 @@ data class QuoteModel(
     val id: String = ObjectId().toHexString(),
     val factoryId: String,
     val projectId: String,
-    val pricedItems: List<ItemdelDTO>,
+    val pricedItems: List<ItemModelDTO>,
     val factor: Double,
     val finalPrice: Double,
     val quotePdf: List<Byte>,

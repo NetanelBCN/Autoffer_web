@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Calculator, DollarSign, TrendingUp, Loader2, Eye } from "lucide-react";
+import { Calculator, DollarSign, TrendingUp, Loader2, Eye, Download } from "lucide-react";
 import { UserModel, websocketService } from "@/services/websocketService";
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 // Real project data structure from server
 interface ProjectItem {
@@ -13,7 +15,7 @@ interface ProjectItem {
   profile: {
     profileNumber: string;
     description: string;
-    pricePerMeter: number;
+    pricePerSquareMeter: number;
   };
   glass: {
     type: string;
@@ -49,6 +51,8 @@ const GlazingReportDialog = ({ open, onClose, userData }: GlazingReportDialogPro
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open && userData?.id) {
@@ -101,15 +105,19 @@ const GlazingReportDialog = ({ open, onClose, userData }: GlazingReportDialogPro
 
   const calculateProjectValue = (items: ProjectItem[]) => {
     return items.reduce((total, item) => {
-      const profileCost = (item.height + item.width) * 2 * item.profile.pricePerMeter * item.quantity;
-      const glassCost = (item.height * item.width) * item.glass.pricePerSquareMeter * item.quantity;
+      const profileArea = (item.height * item.width) / 10000; // Convert cm² to m²
+      const glassArea = (item.height * item.width) / 10000; // Convert cm² to m²
+      
+      const profileCost = profileArea * (item.profile.pricePerSquareMeter || 0) * item.quantity;
+      const glassCost = glassArea * (item.glass.pricePerSquareMeter || 0) * item.quantity;
+      
       return total + profileCost + glassCost;
     }, 0);
   };
 
   const calculateGlazingReport = (project: Project) => {
-    const factorPercentage = userData?.factor || 0;
-    const factorValue = factorPercentage / 100;
+    const factorValue = userData?.factor || 1.0; // Factor is already the multiplier (e.g., 1.25), not percentage
+    const factorPercentage = ((factorValue - 1) * 100); // Convert factor to percentage for display
     
     const glassItems = getGlassItems(project.items);
     
@@ -118,7 +126,7 @@ const GlazingReportDialog = ({ open, onClose, userData }: GlazingReportDialogPro
       const areaPerUnit = (item.height * item.width) / 10000; // Convert cm² to m²
       const totalArea = areaPerUnit * item.quantity;
       const glassCost = totalArea * item.glass.pricePerSquareMeter;
-      const glassCostWithFactor = glassCost * (1 + factorValue);
+      const glassCostWithFactor = glassCost * factorValue;
       
       return {
         ...item,
@@ -147,11 +155,98 @@ const GlazingReportDialog = ({ open, onClose, userData }: GlazingReportDialogPro
   };
 
   const formatCurrency = (amount: number) => {
+    // Handle NaN and undefined values
+    if (isNaN(amount) || amount === undefined || amount === null) {
+      return '$0.00';
+    }
     return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatArea = (area: number) => {
     return `${area.toFixed(2)} m²`;
+  };
+
+  const downloadPDF = async () => {
+    if (!reportRef.current || !selectedProject) return;
+
+    setIsGeneratingPDF(true);
+    try {
+      // Clone the element and convert modern CSS colors to supported ones
+      const clone = reportRef.current.cloneNode(true) as HTMLElement;
+      
+      // Replace modern CSS with compatible colors
+      const replaceModernColors = (element: Element) => {
+        const style = window.getComputedStyle(element);
+        const newElement = element as HTMLElement;
+        
+        // Convert oklch and other modern colors to hex/rgb
+        if (style.backgroundColor && style.backgroundColor.includes('oklch')) {
+          newElement.style.backgroundColor = '#ffffff';
+        }
+        if (style.color && style.color.includes('oklch')) {
+          newElement.style.color = '#000000';
+        }
+        if (style.borderColor && style.borderColor.includes('oklch')) {
+          newElement.style.borderColor = '#e5e7eb';
+        }
+        
+        // Process child elements
+        Array.from(element.children).forEach(child => {
+          replaceModernColors(child);
+        });
+      };
+      
+      replaceModernColors(clone);
+      
+      // Temporarily add clone to document for rendering
+      clone.style.position = 'absolute';
+      clone.style.left = '-9999px';
+      clone.style.top = '0';
+      document.body.appendChild(clone);
+
+      const canvas = await html2canvas(clone, {
+        height: clone.scrollHeight,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        scale: 2,
+        ignoreElements: (element) => {
+          // Skip elements that might cause issues
+          return element.classList?.contains('lucide') || false;
+        }
+      });
+      
+      // Remove clone
+      document.body.removeChild(clone);
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 295; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // First page
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Add additional pages if needed
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const projectId = selectedProject.projectId.slice(-6);
+      pdf.save(`glazing-report-${projectId}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   if (!open) return null;
@@ -224,16 +319,39 @@ const GlazingReportDialog = ({ open, onClose, userData }: GlazingReportDialogPro
               <Button variant="outline" onClick={() => setShowReport(false)} className="mb-4">
                 ← Back to Projects
               </Button>
-              <Badge variant="outline" className="mb-4">
-                Factory Factor: {userData?.factor?.toFixed(1) || '0.0'}%
-              </Badge>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  onClick={downloadPDF} 
+                  disabled={isGeneratingPDF}
+                  className="mb-4 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isGeneratingPDF ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating PDF...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PDF
+                    </>
+                  )}
+                </Button>
+                <Badge variant="outline" className="mb-4">
+                  Factory Factor: {userData?.factor?.toFixed(2) || '1.00'}x
+                </Badge>
+              </div>
             </div>
 
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Project #{selectedProject.projectId.slice(-6)}</h3>
-              <p className="text-gray-600">Address: {selectedProject.projectAddress}</p>
-              <p className="text-gray-600">Status: <Badge variant="outline" className="bg-green-100 text-green-800">ACCEPTED</Badge></p>
-            </div>
+            <div ref={reportRef} className="bg-white p-6 rounded-lg">
+              <div className="bg-blue-50 p-4 rounded-lg mb-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Glazing Report - Project #{selectedProject.projectId.slice(-6)}</h3>
+                <p className="text-gray-600">Address: {selectedProject.projectAddress}</p>
+                <p className="text-gray-600">Status: <Badge variant="outline" className="bg-green-100 text-green-800">ACCEPTED</Badge></p>
+                <p className="text-gray-600 mt-2">
+                  Generated on: {new Date().toLocaleDateString()} | Factory Factor: {userData?.factor?.toFixed(2) || '1.00'}x
+                </p>
+              </div>
 
             {(() => {
               const report = calculateGlazingReport(selectedProject);
@@ -317,7 +435,7 @@ const GlazingReportDialog = ({ open, onClose, userData }: GlazingReportDialogPro
                       <Card>
                         <CardContent className="p-4 text-center">
                           <Calculator className="h-6 w-6 text-blue-600 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600">Glass Cost with Factor ({report.factorPercentage}%)</p>
+                          <p className="text-sm text-gray-600">Glass Cost with Factor ({report.factorPercentage.toFixed(1)}%)</p>
                           <p className="text-xl font-bold text-blue-900">{formatCurrency(report.totalGlassCostWithFactor)}</p>
                         </CardContent>
                       </Card>
@@ -339,8 +457,8 @@ const GlazingReportDialog = ({ open, onClose, userData }: GlazingReportDialogPro
                         <p><strong>Glazing Report Calculation:</strong></p>
                         <p>• Total Glass Area: {formatArea(report.totalGlassArea)}</p>
                         <p>• Base Glass Cost: {formatCurrency(report.totalGlassCost)}</p>
-                        <p>• Factory Factor: {report.factorPercentage}%</p>
-                        <p>• Total with Factor: {formatCurrency(report.totalGlassCost)} × (1 + {report.factorPercentage}%) = {formatCurrency(report.totalGlassCostWithFactor)}</p>
+                        <p>• Factory Factor: {(report.factorPercentage / 100 + 1).toFixed(2)}x ({report.factorPercentage.toFixed(1)}%)</p>
+                        <p>• Total with Factor: {formatCurrency(report.totalGlassCost)} × {(report.factorPercentage / 100 + 1).toFixed(2)} = {formatCurrency(report.totalGlassCostWithFactor)}</p>
                         <p>• Glass Profit: {formatCurrency(report.totalGlassCostWithFactor)} - {formatCurrency(report.totalGlassCost)} = {formatCurrency(report.totalGlassProfit)}</p>
                         <p className="mt-2 text-blue-600"><strong>Note:</strong> This report focuses only on glass-related items and calculations.</p>
                       </div>
@@ -349,6 +467,7 @@ const GlazingReportDialog = ({ open, onClose, userData }: GlazingReportDialogPro
                 </>
               );
             })()}
+            </div>
           </div>
         )}
       </DialogContent>

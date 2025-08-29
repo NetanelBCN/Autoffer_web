@@ -82,4 +82,9 @@ class ProjectController(
         return projectService.hasProjects(clientId)
     }
 
+    // ✅ חדש: יצירת הצעת מחיר מ-BOQ
+    @MessageMapping("projects.createQuoteFromBOQ")
+    fun createQuoteFromBOQ(@Payload request: CreateQuoteFromBOQRequest): Mono<Void> =
+        projectService.createQuoteFromBOQ(request.projectId, request.factoryId)
+
 }

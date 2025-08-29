@@ -1,12 +1,14 @@
 import org.socialnetwork.messagingserver.models.UserModel
 import org.socialnetwork.messagingserver.models.UserType
 import org.springframework.data.annotation.TypeAlias
+import org.springframework.data.mongodb.core.mapping.Field
 import java.time.LocalDateTime
 
 @TypeAlias("factoryUser")
 class FactoryUserModel(
     val businessId: String = "",
-    val factor: Double = 1.0,
+    @Field("factoryFactor")
+    override var factor: Double = 1.0,
     val factoryName: String = "",
     id: String? = null,
     firstName: String,
@@ -30,5 +32,6 @@ class FactoryUserModel(
     profileType = profileType,
     registeredAt = registeredAt,
     chats = chats,
-    photoBytes = photoBytes
+    photoBytes = photoBytes,
+    factor = factor
 )

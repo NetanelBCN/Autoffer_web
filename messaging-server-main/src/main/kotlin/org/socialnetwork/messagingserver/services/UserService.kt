@@ -35,7 +35,8 @@ class UserService(private val userRepository: UserRepository,
                         address = request.address,
                         profileType = request.profileType,
                         registeredAt = LocalDateTime.now(),
-                        chats = mutableListOf()
+                        chats = mutableListOf(),
+                        factor = 1.0
                     )
                 )
             )
@@ -103,7 +104,9 @@ class UserService(private val userRepository: UserRepository,
                     address = user.address,
                     profileType = user.profileType,
                     registeredAt = user.registeredAt,
-                    chats = user.chats
+                    chats = user.chats,
+                    photoBytes = user.photoBytes,
+                    factor = user.factor
                 )
                 userRepository.save(updatedUser)
             }
@@ -117,5 +120,26 @@ class UserService(private val userRepository: UserRepository,
             .switchIfEmpty(Mono.error(NoSuchElementException("Factory with ID $factoryId not found")))
     }
 
+    fun updateUserFactor(userId: String, factor: Double): Mono<UserModel> {
+        return userRepository.findById(userId)
+            .flatMap { user ->
+                val updatedUser = UserModel(
+                    id = user.id,
+                    firstName = user.firstName,
+                    lastName = user.lastName,
+                    email = user.email,
+                    password = user.password,
+                    phoneNumber = user.phoneNumber,
+                    address = user.address,
+                    profileType = user.profileType,
+                    registeredAt = user.registeredAt,
+                    chats = user.chats,
+                    photoBytes = user.photoBytes,
+                    factor = factor
+                )
+                userRepository.save(updatedUser)
+            }
+            .switchIfEmpty(Mono.error(NoSuchElementException("User with ID $userId not found")))
+    }
 
 }

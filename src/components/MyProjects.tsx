@@ -118,47 +118,12 @@ const MyProjects = ({ userData }: MyProjectsProps) => {
     return status || 'UNKNOWN';
   };
 
-  const groupProjectsByStatus = (projects: Project[]) => {
-    const grouped = projects.reduce((acc, project) => {
+  // Filter to show only ACCEPTED projects
+  const getAcceptedProjects = (projects: Project[]) => {
+    return projects.filter(project => {
       const status = getProjectStatus(project);
-      if (!acc[status]) {
-        acc[status] = [];
-      }
-      acc[status].push(project);
-      return acc;
-    }, {} as Record<string, Project[]>);
-
-    // Define status order and labels
-    const statusOrder: Record<string, { label: string; description: string; color: string }> = {
-      'PENDING': { 
-        label: 'Pending Projects', 
-        description: 'New projects received from clients that need your response',
-        color: 'bg-blue-50 border-blue-200'
-      },
-      'RECEIVED': { 
-        label: 'Quote Sent', 
-        description: 'Projects where you have sent a quote and awaiting client decision',
-        color: 'bg-yellow-50 border-yellow-200'
-      },
-      'ACCEPTED': { 
-        label: 'Active Projects', 
-        description: 'Projects accepted by client and currently in progress',
-        color: 'bg-green-50 border-green-200'
-      },
-      'REJECTED': { 
-        label: 'Declined Projects', 
-        description: 'Projects where your quote was not accepted',
-        color: 'bg-red-50 border-red-200'
-      }
-    };
-
-    return Object.keys(statusOrder)
-      .filter(status => grouped[status] && grouped[status].length > 0)
-      .map(status => ({
-        status,
-        ...statusOrder[status],
-        projects: grouped[status]
-      }));
+      return status === 'ACCEPTED';
+    });
   };
 
   const getStatusBadgeProps = (status: string) => {
@@ -241,23 +206,28 @@ const MyProjects = ({ userData }: MyProjectsProps) => {
     );
   }
 
+  const acceptedProjects = getAcceptedProjects(projects);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">My Projects</h1>
+        <h1 className="text-3xl font-bold text-gray-900">My Accepted Projects</h1>
         <div className="flex items-center space-x-2 text-sm text-gray-600">
-          <FileText className="h-4 w-4 text-blue-600" />
-          <span>Showing all projects you've responded to</span>
+          <FileText className="h-4 w-4 text-green-600" />
+          <span>Showing only projects accepted by factories</span>
+          <Badge variant="secondary" className="bg-green-100 text-green-800">
+            {acceptedProjects.length} Active
+          </Badge>
         </div>
       </div>
 
-      {projects.length === 0 && !loading && !error ? (
+      {acceptedProjects.length === 0 && !loading && !error ? (
         <Card className="py-12">
           <CardContent className="text-center">
             <Building className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Projects Found</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Accepted Projects</h3>
             <p className="text-gray-600 mb-4">
-              You don't have any projects yet. Projects will appear here once you respond to client requests or when the server backend is fully configured.
+              You don't have any accepted projects yet. Projects will appear here once factories accept your project requests.
             </p>
             <Button onClick={loadProjects} variant="outline">
               Refresh
@@ -265,122 +235,84 @@ const MyProjects = ({ userData }: MyProjectsProps) => {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-8">
-          {groupProjectsByStatus(projects).map((statusGroup, groupIndex) => (
-            <div key={statusGroup.status}>
-              {/* Status Section Header */}
-              <div className={`rounded-lg p-4 mb-6 ${statusGroup.color}`}>
-                <div className="flex items-center justify-between">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {acceptedProjects.map((project) => {
+            const statusBadge = getStatusBadgeProps('ACCEPTED');
+            return (
+              <Card key={project.projectId} className="hover:shadow-lg transition-shadow border-green-200">
+                <CardHeader className="pb-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg mb-2 flex items-center">
+                        <FileText className="h-5 w-5 text-green-600 mr-2" />
+                        <span className="truncate">Project #{project.projectId.slice(-6)}</span>
+                      </CardTitle>
+                      <div className="space-y-2">
+                        <div className="flex items-center text-sm text-gray-600">
+                          <MapPin className="h-4 w-4 mr-2" />
+                          <span className="truncate">{project.projectAddress}</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Calendar className="h-4 w-4 mr-2" />
+                          <span>Created: {formatDate(project.createdAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <Badge variant={statusBadge.variant} className={statusBadge.className}>
+                      <span className="mr-1">{statusBadge.icon}</span>
+                      Active
+                    </Badge>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  <Separator />
+                  
+                  {/* Project Items Summary */}
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900 flex items-center">
-                      <span className="mr-2 text-2xl">{getStatusBadgeProps(statusGroup.status).icon}</span>
-                      {statusGroup.label}
-                      <Badge variant="secondary" className="ml-3">
-                        {statusGroup.projects.length}
-                      </Badge>
-                    </h2>
-                    <p className="text-sm text-gray-600 mt-1">{statusGroup.description}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Projects Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                {statusGroup.projects.map((project) => {
-                  const statusBadge = getStatusBadgeProps(getProjectStatus(project));
-                  return (
-                    <Card key={project.projectId} className="hover:shadow-lg transition-shadow">
-                      <CardHeader className="pb-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg mb-2 flex items-center">
-                              <FileText className="h-5 w-5 text-blue-600 mr-2" />
-                              <span className="truncate">Project #{project.projectId.slice(-6)}</span>
-                            </CardTitle>
-                            <div className="space-y-2">
-                              <div className="flex items-center text-sm text-gray-600">
-                                <MapPin className="h-4 w-4 mr-2" />
-                                <span className="truncate">{project.projectAddress}</span>
-                              </div>
-                              <div className="flex items-center text-sm text-gray-600">
-                                <Calendar className="h-4 w-4 mr-2" />
-                                <span>Created: {formatDate(project.createdAt)}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <Badge variant={statusBadge.variant} className={statusBadge.className}>
-                            <span className="mr-1">{statusBadge.icon}</span>
-                            {statusGroup.status === 'PENDING' ? 'Pending' :
-                             statusGroup.status === 'RECEIVED' ? 'Quote Sent' :
-                             statusGroup.status === 'ACCEPTED' ? 'Active' :
-                             statusGroup.status === 'REJECTED' ? 'Declined' : statusGroup.status}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-
-                      <CardContent className="space-y-4">
-                        <Separator />
-                        
-                        {/* Project Items Summary */}
-                        <div>
-                          <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                            <Package className="h-4 w-4 mr-2" />
-                            Project Items ({project.items.length})
-                          </h4>
-                          <div className="space-y-2 max-h-32 overflow-y-auto">
-                            {project.items.slice(0, 3).map((item, index) => (
-                              <div key={index} className="text-sm bg-gray-50 p-2 rounded">
-                                <div className="font-medium">{item.profile.profileNumber}</div>
-                                <div className="text-gray-600">
-                                  {item.width}×{item.height}cm, Qty: {item.quantity} | {item.location}
-                                </div>
-                              </div>
-                            ))}
-                            {project.items.length > 3 && (
-                              <div className="text-sm text-gray-500 text-center py-1">
-                                +{project.items.length - 3} more items...
-                              </div>
-                            )}
+                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                      <Package className="h-4 w-4 mr-2" />
+                      Project Items ({project.items.length})
+                    </h4>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {project.items.slice(0, 3).map((item, index) => (
+                        <div key={index} className="text-sm bg-green-50 p-2 rounded border-green-200">
+                          <div className="font-medium">{item.profile.profileNumber}</div>
+                          <div className="text-gray-600">
+                            {item.width}×{item.height}cm, Qty: {item.quantity} | {item.location}
                           </div>
                         </div>
-
-                        <Separator />
-
-                        {/* Actions */}
-                        <div className="flex justify-end">
-                          <div className="flex space-x-2">
-                            {project.boqPdf && project.boqPdf.length > 0 && (
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => downloadBoqPdf(project)}
-                                className="flex items-center"
-                              >
-                                <Download className="h-4 w-4 mr-1" />
-                                BOQ
-                              </Button>
-                            )}
-                          </div>
+                      ))}
+                      {project.items.length > 3 && (
+                        <div className="text-sm text-gray-500 text-center py-1">
+                          +{project.items.length - 3} more items...
                         </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+                      )}
+                    </div>
+                  </div>
 
-              {/* Section Divider */}
-              {groupIndex < groupProjectsByStatus(projects).length - 1 && (
-                <div className="relative my-8">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-200"></div>
+                  <Separator />
+
+                  {/* Actions */}
+                  <div className="flex justify-end">
+                    <div className="flex space-x-2">
+                      {project.boqPdf && project.boqPdf.length > 0 && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => downloadBoqPdf(project)}
+                          className="flex items-center border-green-200 hover:bg-green-50"
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          BOQ
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-4 bg-white text-gray-500">•••</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
       

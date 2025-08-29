@@ -82,6 +82,11 @@ export interface UserSearchRequest {
   email: string;
 }
 
+export interface CreateQuoteFromBOQRequest {
+  projectId: string;
+  factoryId: string;
+}
+
 class WebSocketService {
   private rsocket: RSocket | null = null;
   private connectionPromise: Promise<RSocket> | null = null;
@@ -685,9 +690,9 @@ class WebSocketService {
     try {
       console.log('🔍 Fetching projects for user:', userId, 'type:', userType);
       const rsocket = await this.connect();
-      const route = 'projects.getForUser';
+      const route = 'projects.getAllForUser';
       
-      const request = { userId, userType };
+      const request = { userId, profileType: userType };
       const payload: Payload = {
         data: (globalThis as any).Buffer.from(JSON.stringify(request), 'utf8'),
         metadata: this.createRouteMetadata(route),
@@ -837,6 +842,55 @@ class WebSocketService {
     } catch (error) {
       console.error('🔍 Failed to fetch BOQ PDF:', error);
       return null;
+    }
+  }
+
+  async createQuoteFromBOQ(projectId: string, factoryId: string): Promise<boolean> {
+    try {
+      console.log('🏗️ Creating quote from BOQ for project:', projectId, 'factory:', factoryId);
+      const rsocket = await this.connect();
+      const route = 'projects.createQuoteFromBOQ';
+      
+      const request: CreateQuoteFromBOQRequest = { projectId, factoryId };
+      const payload: Payload = {
+        data: (globalThis as any).Buffer.from(JSON.stringify(request), 'utf8'),
+        metadata: this.createRouteMetadata(route),
+      };
+
+      return new Promise<boolean>((resolve, reject) => {
+        rsocket.requestResponse(payload, {
+          onNext(payload: Payload) {
+            console.log('🏗️ Quote creation response received:', payload);
+            if (payload.data) {
+              try {
+                const response = JSON.parse(payload.data.toString('utf8'));
+                console.log('🏗️ Quote created successfully:', response);
+                resolve(true);
+              } catch (e) {
+                console.error('🏗️ Failed to parse quote creation response:', e);
+                resolve(false);
+              }
+            } else {
+              console.log('🏗️ Quote created successfully (no response data)');
+              resolve(true);
+            }
+          },
+          onError(err: Error) {
+            console.error('🏗️ Quote creation error:', err);
+            reject(err);
+          },
+          onComplete() {
+            console.log('🏗️ Quote creation completed');
+            resolve(true);
+          },
+          onExtension() {
+            // Handle extension if needed
+          }
+        });
+      });
+    } catch (error) {
+      console.error('🏗️ Failed to create quote from BOQ:', error);
+      return false;
     }
   }
 

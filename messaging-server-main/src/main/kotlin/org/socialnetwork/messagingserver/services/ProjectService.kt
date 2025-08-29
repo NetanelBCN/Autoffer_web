@@ -354,4 +354,62 @@ class ProjectService(
     fun deleteProjectById(projectId: String): Mono<Void> =
         projectRepository.deleteById(projectId)
 
+    fun createQuoteFromBOQ(projectId: String, factoryId: String): Mono<Void> {
+        return projectRepository.findById(projectId)
+            .zipWith(userService.getFactoryById(factoryId))
+            .flatMap { tuple ->
+                val project = tuple.t1
+                val factory = tuple.t2
+                
+                userRepository.findById(project.clientId).map { client ->
+                    Triple(project, factory, client)
+                }
+            }
+            .flatMap { (project, factory, client) ->
+                
+                // חישוב המחיר הבסיסי של כל הפריטים
+                val basePrice = project.items.sumOf { item ->
+                    val profilePrice = item.profile.pricePerSquareMeter
+                    val glassPrice = item.glass.pricePerSquareMeter
+                    val area = item.height * item.width
+                    
+                    // Both profile and glass are priced per square meter
+                    (profilePrice * area + glassPrice * area) * item.quantity
+                }
+                
+                // כפל במקדם המפעל (factor) - זה הבדל העיקרי מהBOQ
+                val finalPrice = basePrice * factory.factor
+                
+                // יצירת PDF לציטוט
+                val quotePdf = pdfGenerator.generateQuotePdf(
+                    project = project,
+                    client = client,
+                    factoryUser = factory,
+                    factoryLogoBytes = factory.photoBytes ?: ByteArray(0)
+                )
+                
+                // יצירת אובייקט ציטוט
+                val quoteModel = QuoteModel(
+                    factoryId = factoryId,
+                    projectId = projectId,
+                    pricedItems = project.items,
+                    factor = factory.factor,
+                    finalPrice = finalPrice,
+                    quotePdf = quotePdf.toList(),
+                    status = "RECEIVED",
+                    createdAt = Instant.now()
+                )
+                
+                // עדכון הפרויקט עם הציטוט החדש
+                val updatedQuotes = project.quotes.toMutableMap().apply {
+                    this[factoryId] = quoteModel
+                }
+                
+                val updatedProject = project.copy(quotes = updatedQuotes)
+                
+                // שמירת הפרויקט המעודכן
+                projectRepository.save(updatedProject).then()
+            }
+    }
+
 }
