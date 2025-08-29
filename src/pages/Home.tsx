@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import NavBar from "@/components/NavBar";
 import Catalog from "@/components/Catalog";
 import Operations from "@/components/Operations";
+import MyAccount from "@/components/MyAccount";
+import MyProjects from "@/components/MyProjects";
 import SubscriptionAds from "@/components/SubscriptionAds";
 import AluminumProjectShowcase from "@/components/AluminumProjectShowcase";
-import { Search, Calendar, Mail, Phone, MapPin, Briefcase } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Carousel,
   CarouselContent,
@@ -67,6 +67,12 @@ const Home = () => {
     setActiveSection("projects");
   };
 
+  const handleUserDataUpdated = (updatedUser: UserModel) => {
+    setUserData(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    console.log('User data updated:', updatedUser);
+  };
+
   const handleImageError = () => {
     console.log("Image failed to load");
   };
@@ -112,122 +118,7 @@ const Home = () => {
           </div>
         );
       case "account":
-        return (
-          <div className="max-w-4xl mx-auto space-y-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-8">My Account</h1>
-            
-            {/* Profile Overview Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-4">
-                  <Avatar className="w-16 h-16">
-                    <AvatarImage 
-                      src={getUserPhotoUrl() || undefined}
-                      alt={userData ? `${userData.firstName} ${userData.lastName}` : 'User'}
-                      onError={handleImageError}
-                      onLoad={handleImageLoad}
-                    />
-                    <AvatarFallback className="text-xl bg-blue-500 text-white">
-                      {userData ? 
-                        `${userData.firstName.charAt(0)}${userData.lastName.charAt(0)}` : 
-                        'U'
-                      }
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h2 className="text-2xl font-semibold">
-                      {userData ? `${userData.firstName} ${userData.lastName}` : 'N/A'}
-                    </h2>
-                    <p className="text-gray-600">
-                      {userData?.profileType === 'FACTORY' ? 'Factory Manager' : userData?.profileType || 'N/A'}
-                    </p>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-700 mb-4">
-                  Experienced aluminum industry professional with expertise in project management and supply chain optimization.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
-                  {/* Contact Information */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Contact Information</h3>
-                    
-                    <div className="flex items-center space-x-3">
-                      <Mail className="w-5 h-5 text-gray-500" />
-                      <div>
-                        <p className="text-sm text-gray-500">Email</p>
-                        <p className="text-gray-900">{userData?.email || 'N/A'}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
-                      <Phone className="w-5 h-5 text-gray-500" />
-                      <div>
-                        <p className="text-sm text-gray-500">Phone</p>
-                        <p className="text-gray-900">{userData?.phoneNumber || 'N/A'}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
-                      <MapPin className="w-5 h-5 text-gray-500" />
-                      <div>
-                        <p className="text-sm text-gray-500">Address</p>
-                        <p className="text-gray-900">{userData?.address || 'N/A'}</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Personal & Professional Details */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Personal & Professional</h3>
-                    
-                    <div className="flex items-center space-x-3">
-                      <Briefcase className="w-5 h-5 text-gray-500" />
-                      <div>
-                        <p className="text-sm text-gray-500">Company</p>
-                        <p className="text-gray-900">R.N.D.Y Industries</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
-                      <Calendar className="w-5 h-5 text-gray-500" />
-                      <div>
-                        <p className="text-sm text-gray-500">Member Since</p>
-                        <p className="text-gray-900">{formatDate(userData?.registeredAt || 'N/A')}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <h3 className="text-2xl font-bold text-blue-600">12</h3>
-                  <p className="text-gray-600">Active Projects</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <h3 className="text-2xl font-bold text-green-600">89</h3>
-                  <p className="text-gray-600">Orders Completed</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <h3 className="text-2xl font-bold text-purple-600">4.8</h3>
-                  <p className="text-gray-600">Rating Average</p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        );
+        return <MyAccount userData={userData} onUserDataUpdated={handleUserDataUpdated} />;
       case "shop":
         return (
           <div>
@@ -319,9 +210,9 @@ const Home = () => {
           </div>
         );
       case "operations":
-        return <Operations />;
+        return <Operations userData={userData} />;
       case "projects":
-        return <h1 className="text-3xl font-bold text-gray-900">My Projects</h1>;
+        return <MyProjects userData={userData} />;
       case "settings":
         return <h1 className="text-3xl font-bold text-gray-900">Settings</h1>;
       case "contact":

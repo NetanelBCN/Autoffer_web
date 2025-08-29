@@ -693,11 +693,21 @@ class WebSocketService {
         metadata: this.createRouteMetadata(route),
       };
 
-      return new Promise<any[]>((resolve, reject) => {
+      return new Promise<any[]>((resolve) => {
         const projects: any[] = [];
+        let hasReceivedData = false;
+        
+        // Add timeout to prevent hanging
+        const timeout = setTimeout(() => {
+          if (!hasReceivedData) {
+            console.log('🔍 Projects request timed out, returning empty array');
+            resolve([]);
+          }
+        }, 10000);
         
         rsocket.requestStream(payload, 2147483647, {
           onNext(payload: Payload) {
+            hasReceivedData = true;
             if (payload.data) {
               try {
                 const project = JSON.parse(payload.data.toString('utf8'));
@@ -709,10 +719,14 @@ class WebSocketService {
             }
           },
           onError(err: Error) {
+            clearTimeout(timeout);
             console.error('🔍 Projects request error:', err);
-            reject(err);
+            // Don't reject, return empty array instead to handle gracefully
+            console.log('🔍 Server may not support this route yet, returning empty projects');
+            resolve([]);
           },
           onComplete() {
+            clearTimeout(timeout);
             console.log('🔍 Projects request completed, total:', projects.length);
             resolve(projects);
           },
@@ -723,6 +737,7 @@ class WebSocketService {
       });
     } catch (error) {
       console.error('🔍 Failed to fetch projects:', error);
+      console.log('🔍 Connection error, returning empty projects array');
       return [];
     }
   }

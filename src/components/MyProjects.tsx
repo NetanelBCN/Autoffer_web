@@ -66,32 +66,35 @@ const MyProjects = ({ userData }: MyProjectsProps) => {
     setError(null);
 
     try {
-      console.log('🔍 Requesting approved projects for factory:', userData.id);
+      console.log('🔍 Requesting projects for user:', userData.id, 'type:', userData.profileType);
       console.log('🔍 Current user data:', userData);
 
-      const response = await websocketService.getProjectsForUser(userData.id, 'FACTORY');
-      console.log('✅ Received approved projects:', response);
+      // Determine user type based on profile
+      const userType = userData.profileType?.toUpperCase() === 'FACTORY' ? 'FACTORY' : 'CLIENT';
+      console.log('🔍 Using user type:', userType);
+
+      const response = await websocketService.getProjectsForUser(userData.id, userType);
+      console.log('✅ Received projects response:', response);
+      console.log('✅ Response type:', typeof response);
+      console.log('✅ Is array:', Array.isArray(response));
       console.log('✅ Number of projects received:', response?.length || 0);
 
       if (Array.isArray(response)) {
-        console.log('✅ Projects before processing:', response);
-        response.forEach((project, index) => {
-          console.log(`📋 Project ${index + 1}:`, {
-            id: project.projectId,
-            address: project.projectAddress,
-            factoryIds: project.factoryIds,
-            quoteStatuses: project.quoteStatuses,
-            currentUserStatus: project.quoteStatuses?.[userData.id]
-          });
-        });
+        console.log('✅ Projects array received:', response);
         setProjects(response);
+        setError(null);
+      } else if (response === null || response === undefined) {
+        console.log('🔍 No projects returned from server');
+        setProjects([]);
+        setError(null);
       } else {
-        console.error('Invalid response format:', response);
-        setError('Invalid response format from server');
+        console.error('❌ Invalid response format:', response);
+        setError(`Invalid response format: ${typeof response}`);
       }
     } catch (err) {
       console.error('❌ Failed to load projects:', err);
-      setError('Failed to load projects. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      setError(`Failed to load projects: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -248,13 +251,13 @@ const MyProjects = ({ userData }: MyProjectsProps) => {
         </div>
       </div>
 
-      {projects.length === 0 ? (
+      {projects.length === 0 && !loading && !error ? (
         <Card className="py-12">
           <CardContent className="text-center">
             <Building className="h-16 w-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Projects Found</h3>
             <p className="text-gray-600 mb-4">
-              You don't have any projects yet. Projects will appear here once you respond to client requests.
+              You don't have any projects yet. Projects will appear here once you respond to client requests or when the server backend is fully configured.
             </p>
             <Button onClick={loadProjects} variant="outline">
               Refresh

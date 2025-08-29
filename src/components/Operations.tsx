@@ -9,19 +9,16 @@ import {
 } from "@/components/ui/collapsible";
 import GlazingReportDialog from "./GlazingReportDialog";
 import ProfitLossReportDialog from "./ProfitLossReportDialog";
-import FactorEditDialog from "./FactorEditDialog";
 import { UserModel } from "@/services/websocketService";
 
 interface OperationsProps {
   userData: UserModel | null;
-  onUserDataUpdated: (updatedUser: UserModel) => void;
 }
 
-const Operations = ({ userData, onUserDataUpdated }: OperationsProps) => {
+const Operations = ({ userData }: OperationsProps) => {
   const [openReports, setOpenReports] = useState(false);
   const [profitLossDialogOpen, setProfitLossDialogOpen] = useState(false);
   const [glazingDialogOpen, setGlazingDialogOpen] = useState(false);
-  const [factorDialogOpen, setFactorDialogOpen] = useState(false);
 
   const reportTypes = [
     { 
@@ -45,7 +42,7 @@ const Operations = ({ userData, onUserDataUpdated }: OperationsProps) => {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Operations</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* New Price Offer Manual Creation */}
         <Card className="hover:shadow-lg transition-shadow h-48 flex flex-col">
           <CardHeader>
@@ -119,27 +116,6 @@ const Operations = ({ userData, onUserDataUpdated }: OperationsProps) => {
             </Collapsible>
           </CardContent>
         </Card>
-
-        {/* Change General Factor Percentage */}
-        <Card className="hover:shadow-lg transition-shadow h-48 flex flex-col">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Percent className="h-5 w-5 text-orange-600" />
-              <span>Change General Factor Percentage</span>
-            </CardTitle>
-            <CardDescription>
-              Adjust the general factor percentage for pricing calculations
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1 flex items-end">
-            <Button 
-              className="w-full bg-black text-white hover:bg-gray-800"
-              onClick={() => setFactorDialogOpen(true)}
-            >
-              Modify Factor % (Current: {userData?.factor?.toFixed(2) || 'N/A'})
-            </Button>
-          </CardContent>
-        </Card>
       </div>
       
       {/* Report Dialogs */}
@@ -152,12 +128,6 @@ const Operations = ({ userData, onUserDataUpdated }: OperationsProps) => {
         open={glazingDialogOpen}
         onClose={() => setGlazingDialogOpen(false)}
         userData={userData}
-      />
-      <FactorEditDialog 
-        open={factorDialogOpen}
-        onClose={() => setFactorDialogOpen(false)}
-        userData={userData}
-        onFactorUpdated={onUserDataUpdated}
       />
     </div>
   );
