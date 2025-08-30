@@ -14,13 +14,16 @@ interface ProjectItem {
   itemNumber: string;
   profile: {
     profileNumber: string;
-    description: string;
+    usageType: string;
     pricePerSquareMeter: number;
   };
   glass: {
     type: string;
-    thickness: number;
     pricePerSquareMeter: number;
+    height: number;
+    width: number;
+    quantity: number;
+    location: string;
   };
   height: number;
   width: number;
@@ -105,11 +108,16 @@ const GlazingReportDialog = ({ open, onClose, userData }: GlazingReportDialogPro
 
   const calculateProjectValue = (items: ProjectItem[]) => {
     return items.reduce((total, item) => {
+      // Profile calculation using item dimensions
       const profileArea = (item.height * item.width) / 10000; // Convert cm² to m²
-      const glassArea = (item.height * item.width) / 10000; // Convert cm² to m²
-      
       const profileCost = profileArea * (item.profile.pricePerSquareMeter || 0) * item.quantity;
-      const glassCost = glassArea * (item.glass.pricePerSquareMeter || 0) * item.quantity;
+      
+      // Glass calculation using glass dimensions if available, otherwise fall back to item dimensions
+      const glassHeight = item.glass.height || item.height;
+      const glassWidth = item.glass.width || item.width;
+      const glassQuantity = item.glass.quantity || item.quantity;
+      const glassArea = (glassHeight * glassWidth) / 10000; // Convert cm² to m²
+      const glassCost = glassArea * (item.glass.pricePerSquareMeter || 0) * glassQuantity;
       
       return total + profileCost + glassCost;
     }, 0);
@@ -123,8 +131,13 @@ const GlazingReportDialog = ({ open, onClose, userData }: GlazingReportDialogPro
     
     // Calculate glass area and costs
     const glassAreaCalculations = glassItems.map(item => {
-      const areaPerUnit = (item.height * item.width) / 10000; // Convert cm² to m²
-      const totalArea = areaPerUnit * item.quantity;
+      // Use glass dimensions if available, otherwise fall back to item dimensions
+      const glassHeight = item.glass.height || item.height;
+      const glassWidth = item.glass.width || item.width;
+      const glassQuantity = item.glass.quantity || item.quantity;
+      
+      const areaPerUnit = (glassHeight * glassWidth) / 10000; // Convert cm² to m²
+      const totalArea = areaPerUnit * glassQuantity;
       const glassCost = totalArea * item.glass.pricePerSquareMeter;
       const glassCostWithFactor = glassCost * factorValue;
       
@@ -167,83 +180,377 @@ const GlazingReportDialog = ({ open, onClose, userData }: GlazingReportDialogPro
   };
 
   const downloadPDF = async () => {
-    if (!reportRef.current || !selectedProject) return;
+    if (!reportRef.current || !selectedProject) {
+      console.error('Missing report element or selected project');
+      return;
+    }
 
     setIsGeneratingPDF(true);
+    console.log('Starting glazing PDF generation...');
+    
     try {
-      // Clone the element and convert modern CSS colors to supported ones
-      const clone = reportRef.current.cloneNode(true) as HTMLElement;
+      // Wait a bit for any pending renders
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Replace modern CSS with compatible colors
-      const replaceModernColors = (element: Element) => {
-        const style = window.getComputedStyle(element);
-        const newElement = element as HTMLElement;
+      console.log('Creating clean DOM structure for glazing PDF...');
+      
+      // Create a completely isolated iframe for rendering
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'absolute';
+      iframe.style.left = '-9999px';
+      iframe.style.top = '0';
+      iframe.style.width = '800px';
+      iframe.style.height = '1000px';
+      iframe.style.border = 'none';
+      document.body.appendChild(iframe);
+      
+      const iframeDoc = iframe.contentDocument!;
+      iframeDoc.open();
+      iframeDoc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+              font-family: system-ui, -apple-system, sans-serif;
+            }
+            body {
+              background: white !important;
+              color: black !important;
+              padding: 20px;
+              line-height: 1.4;
+            }
+            .header {
+              background-color: #eff6ff;
+              padding: 20px;
+              border-radius: 8px;
+              margin-bottom: 24px;
+            }
+            .title {
+              font-size: 24px;
+              font-weight: bold;
+              color: #111827;
+              margin-bottom: 8px;
+            }
+            .subtitle {
+              color: #4b5563;
+              font-size: 14px;
+            }
+            .glass-item {
+              background-color: white;
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              padding: 12px;
+              margin-bottom: 8px;
+              display: flex;
+              justify-content: space-between;
+            }
+            .item-details {
+              flex: 1;
+            }
+            .item-title {
+              font-weight: 600;
+              font-size: 14px;
+              margin-bottom: 4px;
+            }
+            .item-specs {
+              font-size: 12px;
+              color: #4b5563;
+              line-height: 1.4;
+            }
+            .item-costs {
+              text-align: right;
+            }
+            .cost-main {
+              font-size: 16px;
+              font-weight: bold;
+              color: #2563eb;
+            }
+            .cost-sub {
+              font-size: 12px;
+              color: #4b5563;
+            }
+            .cost-profit {
+              font-size: 12px;
+              color: #16a34a;
+            }
+            .summary-cards {
+              display: flex;
+              justify-content: space-between;
+              gap: 16px;
+              margin-bottom: 24px;
+            }
+            .summary-card {
+              background-color: white;
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              padding: 16px;
+              text-align: center;
+              flex: 1;
+            }
+            .summary-card.profit {
+              background-color: #ecfdf5;
+              border-color: #bbf7d0;
+            }
+            .summary-icon {
+              margin-bottom: 8px;
+            }
+            .summary-label {
+              font-size: 12px;
+              color: #4b5563;
+              margin-bottom: 4px;
+            }
+            .summary-value {
+              font-size: 20px;
+              font-weight: bold;
+              color: #111827;
+            }
+            .summary-value.blue {
+              color: #2563eb;
+            }
+            .summary-value.green {
+              color: #166534;
+            }
+            .breakdown {
+              background-color: #f9fafb;
+              padding: 16px;
+              border-radius: 8px;
+              font-size: 11px;
+              line-height: 1.6;
+            }
+            .breakdown h4 {
+              font-size: 14px;
+              margin-bottom: 12px;
+              color: #111827;
+            }
+            .item-calc {
+              border-bottom: 1px solid #e5e7eb;
+              padding-bottom: 8px;
+              margin-bottom: 8px;
+            }
+            .item-calc:last-child {
+              border-bottom: none;
+            }
+            .totals {
+              margin-top: 16px;
+              padding-top: 12px;
+              border-top: 2px solid #e5e7eb;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">Glazing Report - Project #${selectedProject.projectId.slice(-6)}</div>
+            <div class="subtitle">
+              Address: ${selectedProject.projectAddress}<br>
+              Status: ACCEPTED | Generated on: ${new Date().toLocaleDateString()} | Factory Factor: ${userData?.factor?.toFixed(2) || '1.00'}x
+            </div>
+          </div>
+          
+          <div id="content"></div>
+        </body>
+        </html>
+      `);
+      iframeDoc.close();
+      
+      // Generate the glazing report content
+      const report = calculateGlazingReport(selectedProject);
+      const contentDiv = iframeDoc.getElementById('content')!;
+      
+      if (report.glassItems.length === 0) {
+        contentDiv.innerHTML = `
+          <div style="text-align: center; padding: 40px; color: #4b5563;">
+            <h3 style="font-size: 18px; margin-bottom: 8px;">No Glass Items Found</h3>
+            <p>This project doesn't contain any glass-related items to analyze.</p>
+          </div>
+        `;
+      } else {
+        // Glass items
+        let contentHTML = '<h4 style="margin-bottom: 16px;">Glass Items Analysis</h4>';
         
-        // Convert oklch and other modern colors to hex/rgb
-        if (style.backgroundColor && style.backgroundColor.includes('oklch')) {
-          newElement.style.backgroundColor = '#ffffff';
-        }
-        if (style.color && style.color.includes('oklch')) {
-          newElement.style.color = '#000000';
-        }
-        if (style.borderColor && style.borderColor.includes('oklch')) {
-          newElement.style.borderColor = '#e5e7eb';
-        }
-        
-        // Process child elements
-        Array.from(element.children).forEach(child => {
-          replaceModernColors(child);
+        report.glassItems.forEach((item) => {
+          contentHTML += `
+            <div class="glass-item">
+              <div class="item-details">
+                <div class="item-title">Item #${item.itemNumber}</div>
+                <div class="item-specs">
+                  Glass: ${item.glass.type} (${(item.glass.width || item.width)}×${(item.glass.height || item.height)}cm)<br>
+                  Area: ${item.areaPerUnit.toFixed(2)} m² × ${(item.glass.quantity || item.quantity)} units = ${item.totalArea.toFixed(2)} m²
+                  ${item.glass.location ? '<br>Location: ' + item.glass.location : ''}
+                </div>
+              </div>
+              <div class="item-costs">
+                <div class="cost-main">${formatCurrency(item.glassCostWithFactor)}</div>
+                <div class="cost-sub">Base: ${formatCurrency(item.glassCost)}</div>
+                <div class="cost-profit">Profit: ${formatCurrency(item.profit)}</div>
+              </div>
+            </div>
+          `;
         });
-      };
+        
+        // Summary cards
+        contentHTML += `
+          <div class="summary-cards">
+            <div class="summary-card">
+              <div class="summary-label">Total Glass Area</div>
+              <div class="summary-value blue">${report.totalGlassArea.toFixed(2)} m²</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Base Glass Cost</div>
+              <div class="summary-value">${formatCurrency(report.totalGlassCost)}</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Glass Cost with Factor (${report.factorPercentage.toFixed(1)}%)</div>
+              <div class="summary-value blue">${formatCurrency(report.totalGlassCostWithFactor)}</div>
+            </div>
+            <div class="summary-card profit">
+              <div class="summary-label">Total Glass Profit</div>
+              <div class="summary-value green">${formatCurrency(report.totalGlassProfit)}</div>
+              <div style="font-size: 12px; color: #16a34a; margin-top: 4px;">
+                Profit Margin: ${report.profitMargin.toFixed(1)}%
+              </div>
+            </div>
+          </div>
+        `;
+        
+        // Detailed breakdown
+        contentHTML += `
+          <div class="breakdown">
+            <h4>Detailed Glass Calculation Breakdown</h4>
+        `;
+        
+        report.glassItems.forEach((item) => {
+          const glassHeight = item.glass.height || item.height;
+          const glassWidth = item.glass.width || item.width;
+          const glassQuantity = item.glass.quantity || item.quantity;
+          const factorValue = (report.factorPercentage / 100 + 1);
+          
+          contentHTML += `
+            <div class="item-calc">
+              <strong>Item #${item.itemNumber} Glass Calculations:</strong><br>
+              • Glass Type: ${item.glass.type}<br>
+              • Glass Area per Unit: ${glassWidth}cm × ${glassHeight}cm ÷ 10,000 = ${item.areaPerUnit.toFixed(4)} m²<br>
+              • Total Glass Area: ${item.areaPerUnit.toFixed(4)} m² × ${glassQuantity} qty = ${item.totalArea.toFixed(4)} m²<br>
+              • Base Glass Cost: ${item.totalArea.toFixed(4)} m² × $${item.glass.pricePerSquareMeter}/m² = ${formatCurrency(item.glassCost)}<br>
+              • With Factor: ${formatCurrency(item.glassCost)} × ${factorValue.toFixed(2)} = ${formatCurrency(item.glassCostWithFactor)}<br>
+              • Glass Profit: ${formatCurrency(item.glassCostWithFactor)} - ${formatCurrency(item.glassCost)} = ${formatCurrency(item.profit)}
+              ${item.glass.location ? '<br>• Location: ' + item.glass.location : ''}
+            </div>
+          `;
+        });
+        
+        contentHTML += `
+            <div class="totals">
+              <strong>Glazing Project Totals:</strong><br>
+              • Total Glass Area: ${formatArea(report.totalGlassArea)} (sum of all glass areas)<br>
+              • Total Base Glass Cost: ${formatCurrency(report.totalGlassCost)} (sum of all glass costs)<br>
+              • Factory Factor: ${(report.factorPercentage / 100 + 1).toFixed(2)}x (${report.factorPercentage.toFixed(1)}% markup)<br>
+              • Total with Factor: ${formatCurrency(report.totalGlassCost)} × ${(report.factorPercentage / 100 + 1).toFixed(2)} = ${formatCurrency(report.totalGlassCostWithFactor)}<br>
+              • Total Glass Profit: ${formatCurrency(report.totalGlassCostWithFactor)} - ${formatCurrency(report.totalGlassCost)} = ${formatCurrency(report.totalGlassProfit)}<br>
+              • Profit Margin: (${formatCurrency(report.totalGlassProfit)} ÷ ${formatCurrency(report.totalGlassCostWithFactor)}) × 100 = ${report.profitMargin.toFixed(1)}%<br>
+              <br><em style="color: #2563eb;">Note: This report focuses only on glass-related items and calculations.</em>
+            </div>
+          </div>
+        `;
+        
+        contentDiv.innerHTML = contentHTML;
+      }
       
-      replaceModernColors(clone);
-      
-      // Temporarily add clone to document for rendering
-      clone.style.position = 'absolute';
-      clone.style.left = '-9999px';
-      clone.style.top = '0';
-      document.body.appendChild(clone);
-
-      const canvas = await html2canvas(clone, {
-        height: clone.scrollHeight,
+      console.log('Capturing clean glazing iframe content...');
+      const canvas = await html2canvas(iframeDoc.body, {
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         backgroundColor: '#ffffff',
-        scale: 2,
-        ignoreElements: (element) => {
-          // Skip elements that might cause issues
-          return element.classList?.contains('lucide') || false;
-        }
+        scale: 1.5,
+        logging: false
       });
       
-      // Remove clone
-      document.body.removeChild(clone);
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      // Clean up iframe
+      document.body.removeChild(iframe);
       
-      const imgWidth = 210; // A4 width in mm
-      const pageHeight = 295; // A4 height in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      // First page
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      // Add additional pages if needed
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+      console.log('Canvas created successfully, size:', canvas.width, 'x', canvas.height);
+      
+      if (canvas.width === 0 || canvas.height === 0) {
+        throw new Error('Canvas has invalid dimensions');
       }
-
+      
+      const imgData = canvas.toDataURL('image/png', 0.95);
+      console.log('Image data created, length:', imgData.length);
+      
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth - 20; // 10mm margin on each side
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      console.log('PDF dimensions:', pdfWidth, 'x', pdfHeight);
+      console.log('Image will be scaled to:', imgWidth, 'x', imgHeight);
+      
+      let yPosition = 10; // Start 10mm from top
+      let remainingHeight = imgHeight;
+      
+      // First page
+      const maxHeightPerPage = pdfHeight - 20; // 10mm margin top and bottom
+      const heightToAdd = Math.min(remainingHeight, maxHeightPerPage);
+      
+      pdf.addImage(
+        imgData, 
+        'PNG', 
+        10, // 10mm left margin
+        yPosition, 
+        imgWidth, 
+        heightToAdd,
+        undefined,
+        'FAST'
+      );
+      
+      remainingHeight -= heightToAdd;
+      
+      // Add additional pages if needed
+      let sourceY = heightToAdd;
+      while (remainingHeight > 0) {
+        pdf.addPage();
+        const heightForThisPage = Math.min(remainingHeight, maxHeightPerPage);
+        
+        // Create a cropped version of the image for this page
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = (heightForThisPage * canvas.width) / imgWidth;
+        
+        tempCtx?.drawImage(
+          canvas,
+          0, (sourceY * canvas.width) / imgWidth, // source x, y
+          canvas.width, tempCanvas.height, // source width, height
+          0, 0, // dest x, y
+          tempCanvas.width, tempCanvas.height // dest width, height
+        );
+        
+        const pageImgData = tempCanvas.toDataURL('image/png', 0.95);
+        pdf.addImage(pageImgData, 'PNG', 10, 10, imgWidth, heightForThisPage, undefined, 'FAST');
+        
+        sourceY += heightForThisPage;
+        remainingHeight -= heightForThisPage;
+      }
+      
       const projectId = selectedProject.projectId.slice(-6);
-      pdf.save(`glazing-report-${projectId}.pdf`);
+      const filename = `glazing-report-${projectId}-${new Date().toISOString().slice(0,10)}.pdf`;
+      
+      console.log('Saving PDF as:', filename);
+      pdf.save(filename);
+      
+      console.log('Glazing PDF generation completed successfully');
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      console.error('Error generating glazing PDF:', error);
+      alert(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -382,11 +689,16 @@ const GlazingReportDialog = ({ open, onClose, userData }: GlazingReportDialogPro
                               <div className="flex-1">
                                 <p className="font-medium text-sm">Item #{item.itemNumber}</p>
                                 <p className="text-xs text-gray-600">
-                                  Glass: {item.glass.type} {item.glass.thickness}mm ({item.width}×{item.height}cm)
+                                  Glass: {item.glass.type} ({(item.glass.width || item.width)}×{(item.glass.height || item.height)}cm)
                                 </p>
                                 <p className="text-xs text-gray-600">
-                                  Area: {formatArea(item.areaPerUnit)} × {item.quantity} units = {formatArea(item.totalArea)}
+                                  Area: {formatArea(item.areaPerUnit)} × {(item.glass.quantity || item.quantity)} units = {formatArea(item.totalArea)}
                                 </p>
+                                {item.glass.location && (
+                                  <p className="text-xs text-gray-500">
+                                    Location: {item.glass.location}
+                                  </p>
+                                )}
                               </div>
                               <div className="text-right">
                                 <p className="font-semibold text-blue-600">{formatCurrency(item.glassCostWithFactor)}</p>
@@ -453,14 +765,42 @@ const GlazingReportDialog = ({ open, onClose, userData }: GlazingReportDialogPro
                         </CardContent>
                       </Card>
 
-                      <div className="text-xs text-gray-500 mt-4">
-                        <p><strong>Glazing Report Calculation:</strong></p>
-                        <p>• Total Glass Area: {formatArea(report.totalGlassArea)}</p>
-                        <p>• Base Glass Cost: {formatCurrency(report.totalGlassCost)}</p>
-                        <p>• Factory Factor: {(report.factorPercentage / 100 + 1).toFixed(2)}x ({report.factorPercentage.toFixed(1)}%)</p>
-                        <p>• Total with Factor: {formatCurrency(report.totalGlassCost)} × {(report.factorPercentage / 100 + 1).toFixed(2)} = {formatCurrency(report.totalGlassCostWithFactor)}</p>
-                        <p>• Glass Profit: {formatCurrency(report.totalGlassCostWithFactor)} - {formatCurrency(report.totalGlassCost)} = {formatCurrency(report.totalGlassProfit)}</p>
-                        <p className="mt-2 text-blue-600"><strong>Note:</strong> This report focuses only on glass-related items and calculations.</p>
+                      {/* Detailed Calculation Breakdown */}
+                      <div className="mt-4">
+                        <h4 className="font-semibold mb-3 text-sm">Detailed Glass Calculation Breakdown</h4>
+                        <div className="bg-gray-50 p-3 rounded text-xs space-y-2">
+                          {report.glassItems.map((item, index) => {
+                            const glassHeight = item.glass.height || item.height;
+                            const glassWidth = item.glass.width || item.width;
+                            const glassQuantity = item.glass.quantity || item.quantity;
+                            const glassArea = (glassHeight * glassWidth) / 10000;
+                            const factorValue = (report.factorPercentage / 100 + 1);
+                            
+                            return (
+                              <div key={index} className="border-b pb-2 mb-2 last:border-b-0">
+                                <p className="font-medium">Item #{item.itemNumber} Glass Calculations:</p>
+                                <p>• Glass Type: {item.glass.type}</p>
+                                <p>• Glass Area per Unit: {glassWidth}cm × {glassHeight}cm ÷ 10,000 = {item.areaPerUnit.toFixed(4)} m²</p>
+                                <p>• Total Glass Area: {item.areaPerUnit.toFixed(4)} m² × {glassQuantity} qty = {item.totalArea.toFixed(4)} m²</p>
+                                <p>• Base Glass Cost: {item.totalArea.toFixed(4)} m² × ${item.glass.pricePerSquareMeter}/m² = {formatCurrency(item.glassCost)}</p>
+                                <p>• With Factor: {formatCurrency(item.glassCost)} × {factorValue.toFixed(2)} = {formatCurrency(item.glassCostWithFactor)}</p>
+                                <p>• Glass Profit: {formatCurrency(item.glassCostWithFactor)} - {formatCurrency(item.glassCost)} = {formatCurrency(item.profit)}</p>
+                                {item.glass.location && <p>• Location: {item.glass.location}</p>}
+                              </div>
+                            );
+                          })}
+                          
+                          <div className="mt-3 pt-2 border-t border-gray-300">
+                            <p className="font-semibold">Glazing Project Totals:</p>
+                            <p>• Total Glass Area: {formatArea(report.totalGlassArea)} (sum of all glass areas)</p>
+                            <p>• Total Base Glass Cost: {formatCurrency(report.totalGlassCost)} (sum of all glass costs)</p>
+                            <p>• Factory Factor: {(report.factorPercentage / 100 + 1).toFixed(2)}x ({report.factorPercentage.toFixed(1)}% markup)</p>
+                            <p>• Total with Factor: {formatCurrency(report.totalGlassCost)} × {(report.factorPercentage / 100 + 1).toFixed(2)} = {formatCurrency(report.totalGlassCostWithFactor)}</p>
+                            <p>• Total Glass Profit: {formatCurrency(report.totalGlassCostWithFactor)} - {formatCurrency(report.totalGlassCost)} = {formatCurrency(report.totalGlassProfit)}</p>
+                            <p>• Profit Margin: ({formatCurrency(report.totalGlassProfit)} ÷ {formatCurrency(report.totalGlassCostWithFactor)}) × 100 = {report.profitMargin.toFixed(1)}%</p>
+                            <p className="mt-2 text-blue-600"><strong>Note:</strong> This report focuses only on glass-related items and calculations.</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>

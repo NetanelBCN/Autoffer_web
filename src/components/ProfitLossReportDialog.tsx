@@ -14,13 +14,16 @@ interface ProjectItem {
   itemNumber: string;
   profile: {
     profileNumber: string;
-    description: string;
+    usageType: string;
     pricePerSquareMeter: number;
   };
   glass: {
     type: string;
-    thickness: number;
     pricePerSquareMeter: number;
+    height: number;
+    width: number;
+    quantity: number;
+    location: string;
   };
   height: number;
   width: number;
@@ -95,22 +98,32 @@ const ProfitLossReportDialog = ({ open, onClose, userData }: ProfitLossReportDia
 
   const calculateProjectValue = (items: ProjectItem[]) => {
     return items.reduce((total, item) => {
-      const profileArea = (item.height * item.width) / 10000; // Convert cm² to m²
-      const glassArea = (item.height * item.width) / 10000; // Convert cm² to m²
-      
+      // Profile calculation using item dimensions
+      const profileArea = (item.height * item.width) / 10000; // Convert to m²
       const profileCost = profileArea * (item.profile.pricePerSquareMeter || 0) * item.quantity;
-      const glassCost = glassArea * (item.glass.pricePerSquareMeter || 0) * item.quantity;
+      
+      // Glass calculation using glass dimensions if available, otherwise fall back to item dimensions
+      const glassHeight = item.glass.height || item.height;
+      const glassWidth = item.glass.width || item.width;
+      const glassQuantity = item.glass.quantity || item.quantity;
+      const glassArea = (glassHeight * glassWidth) / 10000; // Convert to m²
+      const glassCost = glassArea * (item.glass.pricePerSquareMeter || 0) * glassQuantity;
       
       return total + profileCost + glassCost;
     }, 0);
   };
 
   const calculateItemCosts = (item: ProjectItem) => {
-    const profileArea = (item.height * item.width) / 10000; // Convert cm² to m²
-    const glassArea = (item.height * item.width) / 10000; // Convert cm² to m²
-    
+    // Profile calculation using item dimensions
+    const profileArea = (item.height * item.width) / 10000; // Convert to m²
     const profileCost = profileArea * (item.profile.pricePerSquareMeter || 0) * item.quantity;
-    const glassCost = glassArea * (item.glass.pricePerSquareMeter || 0) * item.quantity;
+    
+    // Glass calculation using glass dimensions if available, otherwise fall back to item dimensions
+    const glassHeight = item.glass.height || item.height;
+    const glassWidth = item.glass.width || item.width;
+    const glassQuantity = item.glass.quantity || item.quantity;
+    const glassArea = (glassHeight * glassWidth) / 10000; // Convert to m²
+    const glassCost = glassArea * (item.glass.pricePerSquareMeter || 0) * glassQuantity;
     
     return { profileCost, glassCost, total: profileCost + glassCost };
   };
@@ -156,139 +169,335 @@ const ProfitLossReportDialog = ({ open, onClose, userData }: ProfitLossReportDia
   };
 
   const downloadPDF = async () => {
-    if (!reportRef.current || !selectedProject) return;
+    if (!reportRef.current || !selectedProject) {
+      console.error('Missing report element or selected project');
+      return;
+    }
 
     setIsGeneratingPDF(true);
+    console.log('Starting PDF generation...');
+    
     try {
-      // Create a style element to override CSS with compatible colors
-      const styleElement = document.createElement('style');
-      styleElement.textContent = `
-        .pdf-export {
-          background-color: #ffffff !important;
-        }
-        .pdf-export .bg-gray-50 {
-          background-color: #f9fafb !important;
-        }
-        .pdf-export .bg-green-50 {
-          background-color: #ecfdf5 !important;
-        }
-        .pdf-export .bg-green-100 {
-          background-color: #dcfce7 !important;
-        }
-        .pdf-export .bg-red-100 {
-          background-color: #fee2e2 !important;
-        }
-        .pdf-export .bg-yellow-100 {
-          background-color: #fef3c7 !important;
-        }
-        .pdf-export .bg-blue-600 {
-          background-color: #2563eb !important;
-        }
-        .pdf-export .text-gray-400 {
-          color: #9ca3af !important;
-        }
-        .pdf-export .text-gray-500 {
-          color: #6b7280 !important;
-        }
-        .pdf-export .text-gray-600 {
-          color: #4b5563 !important;
-        }
-        .pdf-export .text-gray-700 {
-          color: #374151 !important;
-        }
-        .pdf-export .text-gray-900 {
-          color: #111827 !important;
-        }
-        .pdf-export .text-blue-600 {
-          color: #2563eb !important;
-        }
-        .pdf-export .text-blue-900 {
-          color: #1e3a8a !important;
-        }
-        .pdf-export .text-green-600 {
-          color: #16a34a !important;
-        }
-        .pdf-export .text-green-700 {
-          color: #15803d !important;
-        }
-        .pdf-export .text-green-800 {
-          color: #166534 !important;
-        }
-        .pdf-export .text-red-800 {
-          color: #991b1b !important;
-        }
-        .pdf-export .text-yellow-800 {
-          color: #92400e !important;
-        }
-        .pdf-export .text-white {
-          color: #ffffff !important;
-        }
-        .pdf-export .border-gray-200 {
-          border-color: #e5e7eb !important;
-        }
-        .pdf-export .border-green-200 {
-          border-color: #bbf7d0 !important;
-        }
-        .pdf-export .border-red-200 {
-          border-color: #fecaca !important;
-        }
-        .pdf-export .border-yellow-200 {
-          border-color: #fde68a !important;
-        }
-        .pdf-export .shadow-md,
-        .pdf-export .shadow-2xl {
-          box-shadow: none !important;
-        }
-      `;
-      document.head.appendChild(styleElement);
-
-      // Clone the element and add PDF export class
-      const clone = reportRef.current.cloneNode(true) as HTMLElement;
-      clone.classList.add('pdf-export');
+      // Wait a bit for any pending renders
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Temporarily add clone to document for rendering
-      clone.style.position = 'absolute';
-      clone.style.left = '-9999px';
-      clone.style.top = '0';
-      document.body.appendChild(clone);
-
-      const canvas = await html2canvas(clone, {
-        height: clone.scrollHeight,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        scale: 2
+      console.log('Creating clean DOM structure for PDF...');
+      
+      // Create a completely isolated iframe for rendering
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'absolute';
+      iframe.style.left = '-9999px';
+      iframe.style.top = '0';
+      iframe.style.width = '800px';
+      iframe.style.height = '1000px';
+      iframe.style.border = 'none';
+      document.body.appendChild(iframe);
+      
+      const iframeDoc = iframe.contentDocument!;
+      iframeDoc.open();
+      iframeDoc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+              font-family: system-ui, -apple-system, sans-serif;
+            }
+            body {
+              background: white !important;
+              color: black !important;
+              padding: 20px;
+              line-height: 1.4;
+            }
+            .header {
+              border-bottom: 2px solid #e5e7eb;
+              padding-bottom: 16px;
+              margin-bottom: 24px;
+            }
+            .title {
+              font-size: 24px;
+              font-weight: bold;
+              color: #111827;
+              margin-bottom: 8px;
+            }
+            .subtitle {
+              color: #4b5563;
+              font-size: 14px;
+            }
+            .table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 24px;
+            }
+            .table th,
+            .table td {
+              padding: 8px 12px;
+              text-align: left;
+              border-bottom: 1px solid #e5e7eb;
+              font-size: 12px;
+            }
+            .table th {
+              background-color: #f9fafb;
+              font-weight: 600;
+              color: #374151;
+            }
+            .summary {
+              display: flex;
+              justify-content: space-between;
+              background-color: #f9fafb;
+              padding: 16px;
+              border-radius: 8px;
+              margin-bottom: 24px;
+            }
+            .summary-item {
+              text-align: center;
+            }
+            .summary-label {
+              font-size: 12px;
+              color: #4b5563;
+              margin-bottom: 4px;
+            }
+            .summary-value {
+              font-size: 18px;
+              font-weight: bold;
+              color: #111827;
+            }
+            .breakdown {
+              background-color: #f9fafb;
+              padding: 16px;
+              border-radius: 8px;
+              font-size: 11px;
+              line-height: 1.6;
+            }
+            .breakdown h4 {
+              font-size: 14px;
+              margin-bottom: 12px;
+              color: #111827;
+            }
+            .item-calc {
+              border-bottom: 1px solid #e5e7eb;
+              padding-bottom: 8px;
+              margin-bottom: 8px;
+            }
+            .item-calc:last-child {
+              border-bottom: none;
+            }
+            .totals {
+              margin-top: 16px;
+              padding-top: 12px;
+              border-top: 2px solid #e5e7eb;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">Profit/Loss Report - Project #${selectedProject.projectId.slice(-6)}</div>
+            <div class="subtitle">
+              Address: ${selectedProject.projectAddress}<br>
+              Status: ${selectedProject.quoteStatuses[userData?.id || ''] || 'UNKNOWN'} | 
+              Generated: ${new Date().toLocaleDateString()} | 
+              Factor: ${userData?.factor?.toFixed(2) || '1.00'}x
+            </div>
+          </div>
+          
+          <div id="content"></div>
+        </body>
+        </html>
+      `);
+      iframeDoc.close();
+      
+      // Generate the report content
+      const report = calculateProfitReport(selectedProject);
+      const contentDiv = iframeDoc.getElementById('content')!;
+      
+      // Items table
+      let tableHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Details</th>
+              <th style="text-align: right;">Base Cost</th>
+              <th style="text-align: right;">With Factor</th>
+              <th style="text-align: right;">Profit</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      report.itemBreakdown.forEach((item) => {
+        tableHTML += `
+          <tr>
+            <td>#${item.itemNumber}</td>
+            <td>
+              ${item.profile.profileNumber} (${item.width}×${item.height}cm)<br>
+              ${item.glass.type} (${(item.glass.width || item.width)}×${(item.glass.height || item.height)}cm) | Qty: ${item.glass.quantity || item.quantity}
+              ${item.glass.location ? '<br>Glass Location: ' + item.glass.location : ''}
+            </td>
+            <td style="text-align: right;">${formatCurrency(item.total)}</td>
+            <td style="text-align: right;">${formatCurrency(item.totalWithFactor)}</td>
+            <td style="text-align: right;">${formatCurrency(item.profit)}</td>
+          </tr>
+        `;
       });
       
-      // Clean up
-      document.body.removeChild(clone);
-      document.head.removeChild(styleElement);
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      tableHTML += `
+          </tbody>
+        </table>
+        
+        <div class="summary">
+          <div class="summary-item">
+            <div class="summary-label">Total Base Cost</div>
+            <div class="summary-value">${formatCurrency(report.totalCost)}</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">With Factor ${report.factorValue.toFixed(2)}</div>
+            <div class="summary-value" style="color: #2563eb;">${formatCurrency(report.totalWithFactor)}</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Total Profit</div>
+            <div class="summary-value" style="color: #16a34a;">${formatCurrency(report.profit)}</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Profit Margin</div>
+            <div class="summary-value" style="color: #16a34a;">${report.profitMargin.toFixed(1)}%</div>
+          </div>
+        </div>
+        
+        <div class="breakdown">
+          <h4>Detailed Calculation Breakdown</h4>
+      `;
       
-      const imgWidth = 210; // A4 width in mm
-      const pageHeight = 295; // A4 height in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      // First page
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      // Add additional pages if needed
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+      report.itemBreakdown.forEach((item, index) => {
+        const profileArea = (item.height * item.width) / 10000;
+        const glassHeight = item.glass.height || item.height;
+        const glassWidth = item.glass.width || item.width;
+        const glassQuantity = item.glass.quantity || item.quantity;
+        const glassArea = (glassHeight * glassWidth) / 10000;
+        
+        tableHTML += `
+          <div class="item-calc">
+            <strong>Item #${item.itemNumber} Calculations:</strong><br>
+            • Profile Area: ${item.width}cm × ${item.height}cm ÷ 10,000 = ${profileArea.toFixed(4)} m²<br>
+            • Profile Cost: ${profileArea.toFixed(4)} m² × $${item.profile.pricePerSquareMeter} × ${item.quantity} qty = ${formatCurrency(item.profileCost)}<br>
+            • Glass Area: ${glassWidth}cm × ${glassHeight}cm ÷ 10,000 = ${glassArea.toFixed(4)} m²<br>
+            • Glass Cost: ${glassArea.toFixed(4)} m² × $${item.glass.pricePerSquareMeter} × ${glassQuantity} qty = ${formatCurrency(item.glassCost)}<br>
+            • Item Total: ${formatCurrency(item.profileCost)} + ${formatCurrency(item.glassCost)} = ${formatCurrency(item.total)}<br>
+            • With Factor: ${formatCurrency(item.total)} × ${report.factorValue.toFixed(2)} = ${formatCurrency(item.totalWithFactor)}<br>
+            • Item Profit: ${formatCurrency(item.totalWithFactor)} - ${formatCurrency(item.total)} = ${formatCurrency(item.profit)}
+          </div>
+        `;
+      });
+      
+      tableHTML += `
+          <div class="totals">
+            <strong>Project Totals:</strong><br>
+            • Total Base Cost: Sum of all item totals = ${formatCurrency(report.totalCost)}<br>
+            • Factory Factor: ${report.factorValue.toFixed(2)}x (${report.factorPercentage.toFixed(1)}% markup)<br>
+            • Total with Factor: ${formatCurrency(report.totalCost)} × ${report.factorValue.toFixed(2)} = ${formatCurrency(report.totalWithFactor)}<br>
+            • Total Profit: ${formatCurrency(report.totalWithFactor)} - ${formatCurrency(report.totalCost)} = ${formatCurrency(report.profit)}<br>
+            • Profit Margin: (${formatCurrency(report.profit)} ÷ ${formatCurrency(report.totalWithFactor)}) × 100 = ${report.profitMargin.toFixed(1)}%
+          </div>
+        </div>
+      `;
+      
+      contentDiv.innerHTML = tableHTML;
+      
+      console.log('Capturing clean iframe content...');
+      const canvas = await html2canvas(iframeDoc.body, {
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        scale: 1.5,
+        logging: false
+      });
+      
+      // Clean up iframe
+      document.body.removeChild(iframe);
+      
+      console.log('Canvas created successfully, size:', canvas.width, 'x', canvas.height);
+      
+      if (canvas.width === 0 || canvas.height === 0) {
+        throw new Error('Canvas has invalid dimensions');
       }
-
+      
+      const imgData = canvas.toDataURL('image/png', 0.95);
+      console.log('Image data created, length:', imgData.length);
+      
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth - 20; // 10mm margin on each side
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      console.log('PDF dimensions:', pdfWidth, 'x', pdfHeight);
+      console.log('Image will be scaled to:', imgWidth, 'x', imgHeight);
+      
+      let yPosition = 10; // Start 10mm from top
+      let remainingHeight = imgHeight;
+      
+      // First page
+      const maxHeightPerPage = pdfHeight - 20; // 10mm margin top and bottom
+      const heightToAdd = Math.min(remainingHeight, maxHeightPerPage);
+      
+      pdf.addImage(
+        imgData, 
+        'PNG', 
+        10, // 10mm left margin
+        yPosition, 
+        imgWidth, 
+        heightToAdd,
+        undefined,
+        'FAST'
+      );
+      
+      remainingHeight -= heightToAdd;
+      
+      // Add additional pages if needed
+      let sourceY = heightToAdd;
+      while (remainingHeight > 0) {
+        pdf.addPage();
+        const heightForThisPage = Math.min(remainingHeight, maxHeightPerPage);
+        
+        // Create a cropped version of the image for this page
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = (heightForThisPage * canvas.width) / imgWidth;
+        
+        tempCtx?.drawImage(
+          canvas,
+          0, (sourceY * canvas.width) / imgWidth, // source x, y
+          canvas.width, tempCanvas.height, // source width, height
+          0, 0, // dest x, y
+          tempCanvas.width, tempCanvas.height // dest width, height
+        );
+        
+        const pageImgData = tempCanvas.toDataURL('image/png', 0.95);
+        pdf.addImage(pageImgData, 'PNG', 10, 10, imgWidth, heightForThisPage, undefined, 'FAST');
+        
+        sourceY += heightForThisPage;
+        remainingHeight -= heightForThisPage;
+      }
+      
       const projectId = selectedProject.projectId.slice(-6);
-      pdf.save(`profit-loss-report-${projectId}.pdf`);
+      const filename = `profit-loss-report-${projectId}-${new Date().toISOString().slice(0,10)}.pdf`;
+      
+      console.log('Saving PDF as:', filename);
+      pdf.save(filename);
+      
+      console.log('PDF generation completed successfully');
     } catch (error) {
       console.error('Error generating PDF:', error);
+      alert(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -428,7 +637,8 @@ const ProfitLossReportDialog = ({ open, onClose, userData }: ProfitLossReportDia
                             <td className="py-1">#{item.itemNumber}</td>
                             <td className="py-1">
                               {item.profile.profileNumber} ({item.width}×{item.height}cm)<br/>
-                              {item.glass.type} {item.glass.thickness}mm | Qty: {item.quantity}
+                              {item.glass.type} ({(item.glass.width || item.width)}×{(item.glass.height || item.height)}cm) | Qty: {item.glass.quantity || item.quantity}
+                              {item.glass.location && <><br/>Glass Location: {item.glass.location}</>}
                             </td>
                             <td className="text-right py-1">{formatCurrency(item.total)}</td>
                             <td className="text-right py-1 font-medium">{formatCurrency(item.totalWithFactor)}</td>
@@ -457,6 +667,42 @@ const ProfitLossReportDialog = ({ open, onClose, userData }: ProfitLossReportDia
                       <div>
                         <p className="text-xs text-gray-600">Profit Margin</p>
                         <p className="font-bold text-green-600">{report.profitMargin.toFixed(1)}%</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Detailed Calculation Breakdown */}
+                  <div className="border-t mt-4 pt-3">
+                    <h4 className="font-semibold mb-3 text-sm">Detailed Calculation Breakdown</h4>
+                    <div className="bg-gray-50 p-3 rounded text-xs space-y-2">
+                      {report.itemBreakdown.map((item, index) => {
+                        const profileArea = (item.height * item.width) / 10000;
+                        const glassHeight = item.glass.height || item.height;
+                        const glassWidth = item.glass.width || item.width;
+                        const glassQuantity = item.glass.quantity || item.quantity;
+                        const glassArea = (glassHeight * glassWidth) / 10000;
+                        
+                        return (
+                          <div key={index} className="border-b pb-2 mb-2 last:border-b-0">
+                            <p className="font-medium">Item #{item.itemNumber} Calculations:</p>
+                            <p>• Profile Area: {item.width}cm × {item.height}cm ÷ 10,000 = {profileArea.toFixed(4)} m²</p>
+                            <p>• Profile Cost: {profileArea.toFixed(4)} m² × ${item.profile.pricePerSquareMeter} × {item.quantity} qty = {formatCurrency(item.profileCost)}</p>
+                            <p>• Glass Area: {glassWidth}cm × {glassHeight}cm ÷ 10,000 = {glassArea.toFixed(4)} m²</p>
+                            <p>• Glass Cost: {glassArea.toFixed(4)} m² × ${item.glass.pricePerSquareMeter} × {glassQuantity} qty = {formatCurrency(item.glassCost)}</p>
+                            <p>• Item Total: {formatCurrency(item.profileCost)} + {formatCurrency(item.glassCost)} = {formatCurrency(item.total)}</p>
+                            <p>• With Factor: {formatCurrency(item.total)} × {report.factorValue.toFixed(2)} = {formatCurrency(item.totalWithFactor)}</p>
+                            <p>• Item Profit: {formatCurrency(item.totalWithFactor)} - {formatCurrency(item.total)} = {formatCurrency(item.profit)}</p>
+                          </div>
+                        );
+                      })}
+                      
+                      <div className="mt-3 pt-2 border-t border-gray-300">
+                        <p className="font-semibold">Project Totals:</p>
+                        <p>• Total Base Cost: Sum of all item totals = {formatCurrency(report.totalCost)}</p>
+                        <p>• Factory Factor: {report.factorValue.toFixed(2)}x ({report.factorPercentage.toFixed(1)}% markup)</p>
+                        <p>• Total with Factor: {formatCurrency(report.totalCost)} × {report.factorValue.toFixed(2)} = {formatCurrency(report.totalWithFactor)}</p>
+                        <p>• Total Profit: {formatCurrency(report.totalWithFactor)} - {formatCurrency(report.totalCost)} = {formatCurrency(report.profit)}</p>
+                        <p>• Profit Margin: ({formatCurrency(report.profit)} ÷ {formatCurrency(report.totalWithFactor)}) × 100 = {report.profitMargin.toFixed(1)}%</p>
                       </div>
                     </div>
                   </div>

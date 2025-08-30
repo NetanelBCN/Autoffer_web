@@ -7,8 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash2, Calculator, FileText, Search, Loader2 } from "lucide-react";
+import { Plus, Trash2, Calculator, FileText, Search, Loader2, Download } from "lucide-react";
 import { UserModel, websocketService } from "@/services/websocketService";
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 // Types based on existing project structure
 interface ProfileOption {
@@ -61,6 +63,7 @@ const ManualPriceOfferDialog = ({ open, onClose, userData }: ManualPriceOfferDia
   const [searchingProfiles, setSearchingProfiles] = useState(false);
   const [clientAddress, setClientAddress] = useState("");
   const [offerTitle, setOfferTitle] = useState("");
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // Generate unique ID for items
   const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -124,7 +127,7 @@ const ManualPriceOfferDialog = ({ open, onClose, userData }: ManualPriceOfferDia
                Server response: ${profiles ? `empty array (length: ${profiles.length})` : 'null/undefined'}
                
                This means either:
-               1. The backend route 'profiles.getByDimensions' doesn't exist yet
+               1. The backend route 'profiles.matchBySize' doesn't exist yet
                2. The route exists but returns no data
                3. There's a server error
                
@@ -217,6 +220,325 @@ const ManualPriceOfferDialog = ({ open, onClose, userData }: ManualPriceOfferDia
       alert('Failed to generate offer. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const downloadOfferPDF = async () => {
+    if (items.length === 0) {
+      alert('Please add at least one item before generating PDF');
+      return;
+    }
+
+    if (!clientAddress.trim() || !offerTitle.trim()) {
+      alert('Please fill in the offer title and client address before generating PDF');
+      return;
+    }
+
+    setIsGeneratingPDF(true);
+    console.log('Starting manual offer PDF generation...');
+    
+    try {
+      // Wait a bit for any pending renders
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Create a completely isolated iframe for rendering
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'absolute';
+      iframe.style.left = '-9999px';
+      iframe.style.top = '0';
+      iframe.style.width = '800px';
+      iframe.style.height = '1000px';
+      iframe.style.border = 'none';
+      document.body.appendChild(iframe);
+      
+      const iframeDoc = iframe.contentDocument!;
+      iframeDoc.open();
+      iframeDoc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+              font-family: system-ui, -apple-system, sans-serif;
+            }
+            body {
+              background: white !important;
+              color: black !important;
+              padding: 20px;
+              line-height: 1.4;
+            }
+            .header {
+              border-bottom: 2px solid #e5e7eb;
+              padding-bottom: 16px;
+              margin-bottom: 24px;
+            }
+            .title {
+              font-size: 28px;
+              font-weight: bold;
+              color: #111827;
+              margin-bottom: 8px;
+            }
+            .subtitle {
+              color: #4b5563;
+              font-size: 16px;
+              margin-bottom: 12px;
+            }
+            .info-section {
+              background-color: #f9fafb;
+              padding: 16px;
+              border-radius: 8px;
+              margin-bottom: 24px;
+            }
+            .info-row {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 8px;
+            }
+            .info-label {
+              font-weight: 600;
+              color: #374151;
+            }
+            .info-value {
+              color: #111827;
+            }
+            .table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 24px;
+            }
+            .table th,
+            .table td {
+              padding: 12px;
+              text-align: left;
+              border-bottom: 1px solid #e5e7eb;
+              font-size: 12px;
+            }
+            .table th {
+              background-color: #f9fafb;
+              font-weight: 600;
+              color: #374151;
+            }
+            .table .item-details {
+              font-size: 11px;
+              color: #4b5563;
+              line-height: 1.4;
+            }
+            .total-section {
+              background-color: #ecfdf5;
+              border: 1px solid #bbf7d0;
+              padding: 20px;
+              border-radius: 8px;
+              text-align: center;
+            }
+            .total-label {
+              font-size: 16px;
+              color: #15803d;
+              margin-bottom: 8px;
+            }
+            .total-value {
+              font-size: 32px;
+              font-weight: bold;
+              color: #166534;
+            }
+            .footer {
+              margin-top: 32px;
+              padding-top: 16px;
+              border-top: 1px solid #e5e7eb;
+              text-align: center;
+              color: #6b7280;
+              font-size: 12px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">Price Offer</div>
+            <div class="subtitle">${offerTitle}</div>
+            <div style="color: #6b7280; font-size: 14px;">
+              Generated on: ${new Date().toLocaleDateString()}
+            </div>
+          </div>
+          
+          <div class="info-section">
+            <div class="info-row">
+              <span class="info-label">Client Address:</span>
+              <span class="info-value">${clientAddress}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Created By:</span>
+              <span class="info-value">${userData?.firstName} ${userData?.lastName} (${userData?.email})</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Total Items:</span>
+              <span class="info-value">${items.length}</span>
+            </div>
+          </div>
+          
+          <div id="content"></div>
+        </body>
+        </html>
+      `);
+      iframeDoc.close();
+      
+      const contentDiv = iframeDoc.getElementById('content')!;
+      
+      // Items table
+      let tableHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Profile</th>
+              <th>Glass</th>
+              <th>Dimensions</th>
+              <th>Qty</th>
+              <th style="text-align: right;">Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      items.forEach((item, index) => {
+        const itemCost = calculateItemCost(item);
+        const area = (item.height * item.width) / 10000;
+        
+        tableHTML += `
+          <tr>
+            <td>${index + 1}</td>
+            <td>
+              <strong>${item.profile!.profileNumber}</strong><br>
+              <span class="item-details">${item.profile!.usageType}<br>${formatCurrency(item.profile!.pricePerSquareMeter)}/m²</span>
+            </td>
+            <td>
+              <strong>${item.glass!.type}</strong><br>
+              <span class="item-details">${formatCurrency(item.glass!.pricePerSquareMeter)}/m²</span>
+            </td>
+            <td>
+              <strong>${item.width}×${item.height}cm</strong><br>
+              <span class="item-details">Area: ${area.toFixed(2)} m²<br>${item.location || 'No location'}</span>
+            </td>
+            <td style="text-align: center;">${item.quantity}</td>
+            <td style="text-align: right; font-weight: 600;">${formatCurrency(itemCost)}</td>
+          </tr>
+        `;
+      });
+      
+      const totalCost = calculateTotalCost();
+      
+      tableHTML += `
+          </tbody>
+        </table>
+        
+        <div class="total-section">
+          <div class="total-label">Total Project Cost</div>
+          <div class="total-value">${formatCurrency(totalCost)}</div>
+        </div>
+        
+        <div class="footer">
+          <div>This offer is valid for 30 days from the date of generation.</div>
+          <div style="margin-top: 8px;">Generated with AutoOffer Web System</div>
+        </div>
+      `;
+      
+      contentDiv.innerHTML = tableHTML;
+      
+      console.log('Capturing manual offer PDF content...');
+      const canvas = await html2canvas(iframeDoc.body, {
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        scale: 1.5,
+        logging: false
+      });
+      
+      // Clean up iframe
+      document.body.removeChild(iframe);
+      
+      console.log('Canvas created successfully, size:', canvas.width, 'x', canvas.height);
+      
+      if (canvas.width === 0 || canvas.height === 0) {
+        throw new Error('Canvas has invalid dimensions');
+      }
+      
+      const imgData = canvas.toDataURL('image/png', 0.95);
+      console.log('Image data created, length:', imgData.length);
+      
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth - 20; // 10mm margin on each side
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      console.log('PDF dimensions:', pdfWidth, 'x', pdfHeight);
+      console.log('Image will be scaled to:', imgWidth, 'x', imgHeight);
+      
+      let yPosition = 10; // Start 10mm from top
+      let remainingHeight = imgHeight;
+      
+      // First page
+      const maxHeightPerPage = pdfHeight - 20; // 10mm margin top and bottom
+      const heightToAdd = Math.min(remainingHeight, maxHeightPerPage);
+      
+      pdf.addImage(
+        imgData, 
+        'PNG', 
+        10, // 10mm left margin
+        yPosition, 
+        imgWidth, 
+        heightToAdd,
+        undefined,
+        'FAST'
+      );
+      
+      remainingHeight -= heightToAdd;
+      
+      // Add additional pages if needed
+      let sourceY = heightToAdd;
+      while (remainingHeight > 0) {
+        pdf.addPage();
+        const heightForThisPage = Math.min(remainingHeight, maxHeightPerPage);
+        
+        // Create a cropped version of the image for this page
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = (heightForThisPage * canvas.width) / imgWidth;
+        
+        tempCtx?.drawImage(
+          canvas,
+          0, (sourceY * canvas.width) / imgWidth, // source x, y
+          canvas.width, tempCanvas.height, // source width, height
+          0, 0, // dest x, y
+          tempCanvas.width, tempCanvas.height // dest width, height
+        );
+        
+        const pageImgData = tempCanvas.toDataURL('image/png', 0.95);
+        pdf.addImage(pageImgData, 'PNG', 10, 10, imgWidth, heightForThisPage, undefined, 'FAST');
+        
+        sourceY += heightForThisPage;
+        remainingHeight -= heightForThisPage;
+      }
+      
+      const cleanTitle = offerTitle.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+      const filename = `manual-offer-${cleanTitle}-${new Date().toISOString().slice(0,10)}.pdf`;
+      
+      console.log('Saving manual offer PDF as:', filename);
+      pdf.save(filename);
+      
+      console.log('Manual offer PDF generation completed successfully');
+    } catch (error) {
+      console.error('Error generating manual offer PDF:', error);
+      alert(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsGeneratingPDF(false);
     }
   };
 
@@ -467,27 +789,49 @@ const ManualPriceOfferDialog = ({ open, onClose, userData }: ManualPriceOfferDia
           <Separator />
 
           {/* Action Buttons */}
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleGenerateOffer} 
-              disabled={items.length === 0 || loading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Generating Offer...
-                </>
-              ) : (
-                <>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Generate Price Offer
-                </>
-              )}
-            </Button>
+            
+            <div className="flex space-x-3">
+              <Button 
+                onClick={downloadOfferPDF} 
+                disabled={items.length === 0 || isGeneratingPDF || !clientAddress.trim() || !offerTitle.trim()}
+                variant="outline"
+                className="border-blue-600 text-blue-600 hover:bg-blue-50"
+              >
+                {isGeneratingPDF ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Generating PDF...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Save as PDF
+                  </>
+                )}
+              </Button>
+              
+              <Button 
+                onClick={handleGenerateOffer} 
+                disabled={items.length === 0 || loading}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Generating Offer...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Generate Price Offer
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

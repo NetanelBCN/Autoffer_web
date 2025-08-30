@@ -900,7 +900,7 @@ class WebSocketService {
       const rsocket = await this.connect();
       console.log('🔧 RSocket connection established successfully');
       
-      const route = 'profiles.getByDimensions';
+      const route = 'profiles.matchBySize';
       const request = { height, width };
       
       console.log('🔧 Using route:', route);
@@ -922,7 +922,7 @@ class WebSocketService {
         const timeout = setTimeout(() => {
           if (!hasReceivedData) {
             console.log('🔧 ❌ TIMEOUT - Aluminum profiles request timed out after 10 seconds');
-            console.log('🔧 ❌ This likely means the backend route "profiles.getByDimensions" does not exist');
+            console.log('🔧 ❌ This likely means the backend route "profiles.matchBySize" does not exist');
             resolve([]);
           }
         }, 10000);
@@ -958,7 +958,7 @@ class WebSocketService {
               message: err.message,
               stack: err.stack
             });
-            console.log('🔧 ❌ This confirms the server route "profiles.getByDimensions" does not exist or has errors');
+            console.log('🔧 ❌ This confirms the server route "profiles.matchBySize" does not exist or has errors');
             resolve([]);
           },
           onComplete() {

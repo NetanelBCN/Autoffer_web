@@ -91,7 +91,7 @@ const FactorEditDialog = ({ open, onClose, userData, onFactorUpdated }: FactorEd
         <div className="space-y-6">
           <div className="space-y-4">
             <div>
-              <Label htmlFor="factor">Factory Factor (1.0 - 1.99)</Label>
+              <Label htmlFor="factor" className="mb-2 block">Factory Factor (1.0 - 1.99)</Label>
               <Input
                 id="factor"
                 type="text"
