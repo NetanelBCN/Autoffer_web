@@ -170,6 +170,7 @@ const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
       
       // Step 5: Show success message and navigate
       toast({
+        variant: "success" as any,
         title: "Registration Successful!",
         description: `Welcome ${user.firstName}! You have been registered and logged in.`,
       });
@@ -372,12 +373,12 @@ const RegisterDialog = ({ open, onClose }: RegisterDialogProps) => {
           <div className="space-y-2">
             <Label htmlFor="profileType">Account Type *</Label>
             <Select onValueChange={handleProfileTypeChange} defaultValue="FACTORY">
-              <SelectTrigger className="h-10">
+              <SelectTrigger className="h-10 bg-white border-gray-300 text-gray-900">
                 <SelectValue placeholder="Select account type" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="FACTORY">Factory</SelectItem>
-                <SelectItem value="CLIENT">Client</SelectItem>
+              <SelectContent className="bg-white border border-gray-200 shadow-lg">
+                <SelectItem value="FACTORY" className="text-gray-900 hover:bg-gray-100 focus:bg-gray-100">Factory</SelectItem>
+                <SelectItem value="CLIENT" className="text-gray-900 hover:bg-gray-100 focus:bg-gray-100">Client</SelectItem>
               </SelectContent>
             </Select>
           </div>
