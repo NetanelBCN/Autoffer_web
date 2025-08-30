@@ -7,6 +7,7 @@ import { Eye, EyeOff, LogIn } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { websocketService, LoginRequest } from "@/services/websocketService";
 import { useChat } from "@/context/ChatContext";
+import RegisterDialog from "./RegisterDialog";
 
 const LoginForm = () => {
   const { toast } = useToast();
@@ -15,6 +16,7 @@ const LoginForm = () => {
   const { initializeUserChats } = useChat();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showRegisterDialog, setShowRegisterDialog] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -219,13 +221,23 @@ const LoginForm = () => {
           <div className="text-center">
             <p className="text-sm text-gray-500">
               Don't have an account?{" "}
-              <a href="#" className="font-medium text-gray-800 hover:underline">
-                Contact sales
-              </a>
+              <button 
+                type="button"
+                onClick={() => setShowRegisterDialog(true)}
+                className="font-medium text-gray-800 hover:underline focus:outline-none"
+              >
+                Register here
+              </button>
             </p>
           </div>
         </form>
       </div>
+
+      {/* Registration Dialog */}
+      <RegisterDialog 
+        open={showRegisterDialog} 
+        onClose={() => setShowRegisterDialog(false)} 
+      />
     </div>
   );
 };

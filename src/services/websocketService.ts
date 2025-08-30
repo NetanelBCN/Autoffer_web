@@ -10,6 +10,16 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface RegisterUserRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phoneNumber: string;
+  address: string;
+  profileType: string;
+}
+
 export interface UserModel {
   id: string;
   firstName: string;
@@ -326,6 +336,95 @@ class WebSocketService {
         throw error;
       } else {
         throw new Error('Failed to connect to server');
+      }
+    }
+  }
+
+  async registerUser(registerRequest: RegisterUserRequest): Promise<UserModel> {
+    try {
+      console.log('Starting RSocket registration process...');
+      const rsocket = await this.connect();
+
+      const route = 'users.register';
+      const payload: Payload = {
+        data: (globalThis as any).Buffer.from(JSON.stringify(registerRequest), 'utf8'),
+        metadata: this.createRouteMetadata(route),
+      };
+
+      console.log('Sending registration request with route:', route);
+      console.log('Registration payload:', registerRequest);
+
+      return new Promise<UserModel>((resolve, reject) => {
+        console.log('Promise created, setting up RSocket callbacks...');
+        
+        let isResolved = false;
+        
+        // Add timeout to prevent infinite loading
+        const timeout = setTimeout(() => {
+          if (!isResolved) {
+            isResolved = true;
+            console.log('🚨 Registration request timed out');
+            reject(new Error('Registration request timed out - please try again'));
+          }
+        }, 10000); // 10 second timeout
+
+        rsocket.requestResponse(payload, {
+          onNext(payload: Payload) {
+            console.log('🎉 onNext called - received registration response payload:', payload);
+            if (!isResolved) {
+              clearTimeout(timeout);
+              isResolved = true;
+              
+              if (payload.data) {
+                const responseData = payload.data.toString('utf8');
+                console.log('🎉 Registration response data string:', responseData);
+                
+                try {
+                  const user: UserModel = JSON.parse(responseData);
+                  console.log('🎉 Registration successful, parsed user:', user);
+                  resolve(user);
+                } catch (e) {
+                  console.error('🚨 Failed to parse registration data:', e);
+                  reject(new Error('Failed to parse registration data'));
+                }
+              } else {
+                console.log('🚨 No data in registration payload!');
+                reject(new Error('No registration response data received'));
+              }
+            }
+          },
+          onComplete() {
+            console.log('🎉 Registration onComplete called');
+            // If onComplete is called without onNext, it means no data was returned (registration failed)
+            if (!isResolved) {
+              clearTimeout(timeout);
+              isResolved = true;
+              console.log('🚨 Registration failed - no user data returned');
+              reject(new Error('Registration failed - please check your information'));
+            }
+          },
+          onError(err: Error) {
+            console.error('🚨 Registration request failed with error:', err);
+            if (!isResolved) {
+              clearTimeout(timeout);
+              isResolved = true;
+              reject(err);
+            }
+          },
+          onExtension() {
+            console.log('🎉 Registration onExtension called');
+          }
+        });
+        
+        console.log('🎉 Registration requestResponse called, waiting for callbacks...');
+      });
+
+    } catch (error) {
+      console.error('🚨 Registration failed in outer catch:', error);
+      if (error instanceof Error) {
+        throw error;
+      } else {
+        throw new Error('Failed to connect to server for registration');
       }
     }
   }
