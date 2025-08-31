@@ -224,7 +224,7 @@ class ProjectService(
                                 factor = 1.0,
                                 finalPrice = 0.0,
                                 quotePdf = quoteBytes.toList(),
-                                status = "RECEIVED",
+                                status = "ACCEPTED",
                                 createdAt = now
                             )
 
@@ -304,7 +304,7 @@ class ProjectService(
                 factor = 1.0, // ניתן לשנות בהמשך לפי לוגיקה
                 finalPrice = 0.0, // ניתן לעדכן בהתאם לפריטים
                 quotePdf = quotePdf.toList(),
-                status = "RECEIVED",
+                status = "ACCEPTED",
                 createdAt = Instant.now()
             )
 
@@ -396,7 +396,7 @@ class ProjectService(
                     factor = factory.factor,
                     finalPrice = finalPrice,
                     quotePdf = quotePdf.toList(),
-                    status = "RECEIVED",
+                    status = "ACCEPTED",
                     createdAt = Instant.now()
                 )
                 
@@ -405,7 +405,14 @@ class ProjectService(
                     this[factoryId] = quoteModel
                 }
                 
-                val updatedProject = project.copy(quotes = updatedQuotes)
+                val updatedStatuses = project.quoteStatuses.toMutableMap().apply {
+                    this[factoryId] = QuoteStatus.ACCEPTED
+                }
+                
+                val updatedProject = project.copy(
+                    quotes = updatedQuotes,
+                    quoteStatuses = updatedStatuses
+                )
                 
                 // שמירת הפרויקט המעודכן
                 projectRepository.save(updatedProject).then()
