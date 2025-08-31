@@ -97,6 +97,11 @@ export interface CreateQuoteFromBOQRequest {
   factoryId: string;
 }
 
+export interface GetQuotePdfRequest {
+  projectId: string;
+  factoryId: string;
+}
+
 class WebSocketService {
   private rsocket: RSocket | null = null;
   private connectionPromise: Promise<RSocket> | null = null;
@@ -940,6 +945,54 @@ class WebSocketService {
       });
     } catch (error) {
       console.error('🔍 Failed to fetch BOQ PDF:', error);
+      return null;
+    }
+  }
+
+  async getQuotePdf(projectId: string, factoryId: string): Promise<Uint8Array | null> {
+    try {
+      console.log('💰 Fetching Quote PDF for project:', projectId, 'factory:', factoryId);
+      const rsocket = await this.connect();
+      const route = 'projects.getQuotePdfForFactory';
+      
+      const request: GetQuotePdfRequest = { projectId, factoryId };
+      const payload: Payload = {
+        data: (globalThis as any).Buffer.from(JSON.stringify(request), 'utf8'),
+        metadata: this.createRouteMetadata(route),
+      };
+
+      return new Promise<Uint8Array | null>((resolve, reject) => {
+        rsocket.requestResponse(payload, {
+          onNext(payload: Payload) {
+            console.log('💰 Quote PDF response received:', payload);
+            if (payload.data) {
+              try {
+                const pdfData = new Uint8Array(payload.data);
+                console.log('💰 Quote PDF data received, size:', pdfData.length, 'bytes');
+                resolve(pdfData);
+              } catch (e) {
+                console.error('💰 Failed to process quote PDF data:', e);
+                resolve(null);
+              }
+            } else {
+              console.log('💰 No quote PDF data received');
+              resolve(null);
+            }
+          },
+          onError(err: Error) {
+            console.error('💰 Quote PDF request error:', err);
+            resolve(null);
+          },
+          onComplete() {
+            console.log('💰 Quote PDF request completed');
+          },
+          onExtension() {
+            // Handle extension if needed
+          }
+        });
+      });
+    } catch (error) {
+      console.error('💰 Failed to fetch Quote PDF:', error);
       return null;
     }
   }

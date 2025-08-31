@@ -12,7 +12,7 @@ interface ChatWindowProps {
 }
 
 const ChatWindow = ({ customerId, position }: ChatWindowProps) => {
-  const { customers, messages, closeChatWindow, sendMessage, openCustomerList } = useChat();
+  const { customers, messages, closeChatWindow, sendMessage, openCustomerList, refreshChatMessages } = useChat();
   const [newMessage, setNewMessage] = useState('');
   const [creatingQuotes, setCreatingQuotes] = useState<Set<string>>(new Set());
   const [generatedQuotes, setGeneratedQuotes] = useState<Set<string>>(new Set());
@@ -25,6 +25,12 @@ const ChatWindow = ({ customerId, position }: ChatWindowProps) => {
   // Extract project ID from BOQ filename
   const extractProjectIdFromBOQ = (fileName: string): string | null => {
     const match = fileName.match(/BOQ_Project_([^.]+)\.pdf/);
+    return match ? match[1] : null;
+  };
+
+  // Extract project ID from Quote filename
+  const extractProjectIdFromQuote = (fileName: string): string | null => {
+    const match = fileName.match(/Quote_Project_([^.]+)\.pdf/);
     return match ? match[1] : null;
   };
 
@@ -62,21 +68,46 @@ const ChatWindow = ({ customerId, position }: ChatWindowProps) => {
       };
     }
     
+    // Check if message has quote file data
+    if (message.fileBytes && message.fileName && message.fileName.toLowerCase().includes('quote')) {
+      return {
+        isQuoteFile: true,
+        fileName: message.fileName,
+        displayText: content || 'Quote Document',
+        hasFileData: true,
+        fileType: message.fileType || 'application/pdf'
+      };
+    }
+    
     // Check for BOQ pattern in content (text-based BOQ reference)
     const boqPattern = /\[BOQ_REQUEST\]\s*(BOQ_Project_[^.\s]+\.pdf)/;
-    const match = content.match(boqPattern);
-    if (match) {
+    const boqMatch = content.match(boqPattern);
+    if (boqMatch) {
       return {
         isBoqFile: true,
-        fileName: match[1],
+        fileName: boqMatch[1],
         displayText: content.replace(boqPattern, '').trim(),
         hasFileData: false,
         fileType: 'application/pdf'
       };
     }
     
+    // Check for Quote pattern in content (text-based Quote reference)
+    const quotePattern = /\[BOQ_REQUEST\]\s*(Quote_Project_[^.\s]+\.pdf)/;
+    const quoteMatch = content.match(quotePattern);
+    if (quoteMatch) {
+      return {
+        isQuoteFile: true,
+        fileName: quoteMatch[1],
+        displayText: content.replace(quotePattern, '').trim(),
+        hasFileData: false,
+        fileType: 'application/pdf'
+      };
+    }
+    
     return { 
-      isBoqFile: false, 
+      isBoqFile: false,
+      isQuoteFile: false, 
       fileName: '', 
       displayText: content, 
       hasFileData: false,
@@ -200,7 +231,15 @@ BOQ File: ${fileName}
 Factory ID: ${userData.id}
 Factory Factor: ${userData.factor}
 
-The quote has been generated with your factory factor (${userData.factor}) applied to the BOQ total price.`);
+The quote has been generated with your factory factor (${userData.factor}) applied to the BOQ total price.
+
+The quote file will appear in the chat shortly...`);
+        
+        // Wait a bit for the server to generate and send the quote file, then refresh
+        setTimeout(async () => {
+          await refreshChatMessages(customerId);
+          console.log('🔄 Refreshed chat messages after quote generation');
+        }, 2000); // Wait 2 seconds
       } else {
         alert(`❌ Failed to create quote from BOQ.
 
@@ -265,6 +304,116 @@ Please try again or contact support.`);
     } catch (error) {
       console.error('Failed to download BOQ file:', error);
       alert('Failed to download BOQ file. Please try again.');
+    }
+  };
+
+  // Handler for viewing Quote file
+  const handleViewQuote = async (fileName: string, hasFileData: boolean) => {
+    console.log('Viewing Quote file:', fileName, 'Has file data:', hasFileData);
+    
+    try {
+      if (hasFileData) {
+        // TODO: Handle direct file data when available from message.fileBytes
+        alert(`Direct file viewing not yet implemented.\n\nFile: ${fileName}`);
+        return;
+      }
+
+      // Extract project ID and get current user for factory ID
+      const projectId = extractProjectIdFromQuote(fileName);
+      if (!projectId) {
+        alert('Could not extract project ID from filename');
+        return;
+      }
+
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) {
+        alert('User information not available. Please refresh the page and try again.');
+        return;
+      }
+
+      const userData = JSON.parse(storedUser);
+      if (!userData.id) {
+        alert('User ID not available. Please refresh the page and try again.');
+        return;
+      }
+
+      console.log('💰 Fetching Quote PDF for project:', projectId, 'factory:', userData.id);
+      const pdfData = await websocketService.getQuotePdf(projectId, userData.id);
+      
+      if (pdfData && pdfData.length > 0) {
+        console.log('💰 Successfully received PDF data, size:', pdfData.length, 'bytes');
+        
+        // Create blob URL and open in new tab
+        const pdfUrl = createPdfBlobUrl(pdfData);
+        console.log('💰 Created blob URL:', pdfUrl);
+        
+        // Open PDF in new tab
+        const newWindow = window.open(pdfUrl, '_blank');
+        if (!newWindow) {
+          alert('Pop-up blocked. Please allow pop-ups to view the PDF file.');
+        }
+        
+        // Clean up after a delay
+        setTimeout(() => {
+          URL.revokeObjectURL(pdfUrl);
+          console.log('💰 Cleaned up blob URL');
+        }, 30000); // 30 seconds should be enough for PDF to load
+      } else {
+        console.log('💰 No PDF data received from server');
+        alert('Quote file not found or empty');
+      }
+    } catch (error) {
+      console.error('Failed to view Quote file:', error);
+      alert('Failed to load Quote file. Please try again.');
+    }
+  };
+
+  // Handler for downloading Quote file
+  const handleDownloadQuote = async (fileName: string, hasFileData: boolean) => {
+    console.log('Downloading Quote file:', fileName, 'Has file data:', hasFileData);
+    
+    try {
+      if (hasFileData) {
+        // TODO: Handle direct file data when available from message.fileBytes
+        alert(`Direct file download not yet implemented.\n\nFile: ${fileName}`);
+        return;
+      }
+
+      // Extract project ID and get current user for factory ID
+      const projectId = extractProjectIdFromQuote(fileName);
+      if (!projectId) {
+        alert('Could not extract project ID from filename');
+        return;
+      }
+
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) {
+        alert('User information not available. Please refresh the page and try again.');
+        return;
+      }
+
+      const userData = JSON.parse(storedUser);
+      if (!userData.id) {
+        alert('User ID not available. Please refresh the page and try again.');
+        return;
+      }
+
+      console.log('💰 Fetching Quote PDF for download:', projectId, 'factory:', userData.id);
+      const pdfData = await websocketService.getQuotePdf(projectId, userData.id);
+      
+      if (pdfData && pdfData.length > 0) {
+        console.log('💰 Successfully received PDF data for download, size:', pdfData.length, 'bytes');
+        
+        // Download the file
+        downloadPdf(pdfData, fileName);
+        console.log('💰 Initiated download of:', fileName);
+      } else {
+        console.log('💰 No PDF data received from server for download');
+        alert('Quote file not found or empty');
+      }
+    } catch (error) {
+      console.error('Failed to download Quote file:', error);
+      alert('Failed to download Quote file. Please try again.');
     }
   };
 
@@ -439,6 +588,44 @@ Please try again or contact support.`);
                         </Button>
                       </div>
                     </div>
+                  </div>
+                ) : boqInfo.isQuoteFile ? (
+                  <div className="flex items-center space-x-2">
+                    {/* Display any additional text first */}
+                    {boqInfo.displayText && (
+                      <span>{boqInfo.displayText}</span>
+                    )}
+                    
+                    {/* Simple clickable eye icon for quote PDF */}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => {
+                        if ((message as any).fileBytes) {
+                          const pdfData = new Uint8Array((message as any).fileBytes);
+                          const blob = new Blob([pdfData], { type: 'application/pdf' });
+                          const url = URL.createObjectURL(blob);
+                          window.open(url, '_blank');
+                        } else {
+                          handleViewQuote(boqInfo.fileName, boqInfo.hasFileData);
+                        }
+                      }}
+                      className={`h-8 w-8 rounded-full transition-all duration-200 hover:scale-110 ${
+                        message.isFromCustomer 
+                          ? 'text-blue-600 hover:bg-blue-100' 
+                          : 'text-blue-300 hover:bg-blue-800'
+                      }`}
+                      title={`View ${boqInfo.fileName}`}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    
+                    {/* Show filename as small text */}
+                    <span className={`text-xs opacity-70 ${
+                      message.isFromCustomer ? 'text-gray-600' : 'text-gray-300'
+                    }`}>
+                      {boqInfo.fileName}
+                    </span>
                   </div>
                 ) : (
                   message.content

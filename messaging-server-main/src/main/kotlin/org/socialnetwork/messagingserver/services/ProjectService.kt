@@ -414,8 +414,42 @@ class ProjectService(
                     quoteStatuses = updatedStatuses
                 )
                 
-                // שמירת הפרויקט המעודכן
-                projectRepository.save(updatedProject).then()
+                val timestamp = Instant.now()
+                    .atZone(ZoneId.of("UTC"))
+                    .format(DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss"))
+                
+                // שליחת קובץ הצעת המחיר ללקוח דרך הצ'אט
+                println("🔵 Starting to send quote file to client")
+                println("🔵 Factory ID: $factoryId")
+                println("🔵 Client ID: ${project.clientId}")
+                println("🔵 Quote PDF size: ${quotePdf.size}")
+                
+                val sendQuoteToClient = chatService.getOrCreateChat(factoryId, project.clientId)
+                    .doOnNext { chat -> println("🔵 Got chat: ${chat.id}") }
+                    .map { it.id!! }
+                    .flatMap { chatId ->
+                        println("🔵 Sending file message to chat: $chatId")
+                        val fileRequest = FileMessageRequest(
+                            chatId = chatId,
+                            sender = factoryId,
+                            receiver = project.clientId,
+                            fileBytes = quotePdf.toList(),
+                            fileName = "Quote_Project_${project.id}.pdf",
+                            fileType = "application/pdf",
+                            timestamp = timestamp
+                        )
+                        println("🔵 File request created: ${fileRequest.fileName}")
+                        chatService.sendFileMessage(fileRequest)
+                            .doOnSuccess { println("🔵 ✅ Quote file sent successfully!") }
+                            .doOnError { error -> println("🔵 ❌ Failed to send quote file: ${error.message}") }
+                    }
+                
+                // שמירת הפרויקט המעודכן ושליחת הקובץ
+                projectRepository.save(updatedProject)
+                    .doOnNext { println("🔵 Project saved successfully") }
+                    .then(sendQuoteToClient)
+                    .doOnSuccess { println("🔵 ✅ Complete quote creation process finished successfully!") }
+                    .doOnError { error -> println("🔵 ❌ Error in quote creation process: ${error.message}") }
             }
     }
 

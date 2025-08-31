@@ -37,6 +37,7 @@ interface ChatContextType {
   initializeUserChats: (userId: string) => Promise<void>;
   searchUserByEmail: (email: string) => Promise<Customer | null>;
   startNewChatWithUser: (email: string) => Promise<boolean>;
+  refreshChatMessages: (customerId: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -563,6 +564,37 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const refreshChatMessages = async (customerId: string) => {
+    try {
+      // Get current user
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) {
+        console.error('No current user found in localStorage');
+        return;
+      }
+
+      const currentUser = JSON.parse(storedUser);
+      
+      // Get or create chat with this customer
+      const chat = await websocketService.getOrCreateChat(currentUser.id, customerId);
+      const chatId = chat.id;
+      
+      // Clear the cache for this chat so it will reload
+      setLoadedChats(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(chatId);
+        return newSet;
+      });
+      
+      // Reload chat history
+      await loadChatHistory(chatId, currentUser.id, customerId);
+      
+      console.log('🔄 Refreshed chat messages for customer:', customerId);
+    } catch (error) {
+      console.error('Failed to refresh chat messages:', error);
+    }
+  };
+
   const contextValue = {
     customers,
     messages,
@@ -576,7 +608,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     loadUserChats,
     initializeUserChats,
     searchUserByEmail,
-    startNewChatWithUser
+    startNewChatWithUser,
+    refreshChatMessages
   };
 
   console.log('🔥 ChatProvider providing context with customers:', customers.length);

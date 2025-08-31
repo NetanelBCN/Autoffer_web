@@ -214,10 +214,6 @@ const Home = () => {
         return <Operations userData={userData} />;
       case "projects":
         return <MyProjects userData={userData} />;
-      case "settings":
-        return <h1 className="text-3xl font-bold text-gray-900">Settings</h1>;
-      case "contact":
-        return <h1 className="text-3xl font-bold text-gray-900">Contact Us</h1>;
       default:
         return (
           <div className="space-y-12">

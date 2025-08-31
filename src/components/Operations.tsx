@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/collapsible";
 import GlazingReportDialog from "./GlazingReportDialog";
 import ProfitLossReportDialog from "./ProfitLossReportDialog";
+import TimePeriodReportDialog from "./TimePeriodReportDialog";
 import ManualPriceOfferDialog from "./ManualPriceOfferDialog";
 import { UserModel } from "@/services/websocketService";
 
@@ -20,6 +21,7 @@ const Operations = ({ userData }: OperationsProps) => {
   const [openReports, setOpenReports] = useState(false);
   const [profitLossDialogOpen, setProfitLossDialogOpen] = useState(false);
   const [glazingDialogOpen, setGlazingDialogOpen] = useState(false);
+  const [timePeriodDialogOpen, setTimePeriodDialogOpen] = useState(false);
   const [manualOfferDialogOpen, setManualOfferDialogOpen] = useState(false);
 
   const reportTypes = [
@@ -35,8 +37,8 @@ const Operations = ({ userData }: OperationsProps) => {
     },
     { 
       name: "Time Period Report", 
-      description: "Activity summary for specific periods",
-      onClick: () => console.log('Time Period Report - Coming soon')
+      description: "Profit analysis for selected date ranges",
+      onClick: () => setTimePeriodDialogOpen(true)
     }
   ];
 
@@ -137,6 +139,11 @@ const Operations = ({ userData }: OperationsProps) => {
       <GlazingReportDialog 
         open={glazingDialogOpen}
         onClose={() => setGlazingDialogOpen(false)}
+        userData={userData}
+      />
+      <TimePeriodReportDialog 
+        open={timePeriodDialogOpen}
+        onClose={() => setTimePeriodDialogOpen(false)}
         userData={userData}
       />
     </div>

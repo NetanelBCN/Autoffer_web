@@ -1,5 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Home, ShoppingCart, FolderOpen, UserRound, Settings, Contact, Briefcase, LogOut } from "lucide-react";
+import { Home, ShoppingCart, FolderOpen, UserRound, Contact, Briefcase, LogOut } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useCart } from "@/context/CartContext";
 import CartDialog from "./CartDialog";
@@ -141,14 +141,9 @@ const NavBar = ({ activeSection, onSectionChange, userData }: NavBarProps) => {
                   <span>My Account</span>
                 </button>
                 <button
-                  onClick={(e) => handleClick("settings", e)}
-                  className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
-                >
-                  <Settings size={16} />
-                  <span>Settings</span>
-                </button>
-                <button
-                  onClick={(e) => handleClick("contact", e)}
+                  onClick={() => {
+                    window.location.href = 'mailto:natanel671@gmail.com?subject=Contact%20me!';
+                  }}
                   className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
                 >
                   <Contact size={16} />
