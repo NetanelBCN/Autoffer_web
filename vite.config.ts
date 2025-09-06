@@ -20,5 +20,10 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     include: ['buffer']
-  }
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+  },
 }));
