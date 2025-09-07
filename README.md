@@ -1,6 +1,8 @@
 # Autoffer Web — Frontend
 
 This is the initial UIX design in Loveable : https://lovable.dev/projects/fc6d2eb4-e366-40f0-bb03-b846c59a0677?magic_link=mc_4c27af70-cdca-40f4-9eea-197bde78f8f1
+
+
 A comprehensive **React + TypeScript** frontend for an aluminum construction management platform, featuring real-time messaging, project management, pricing tools, and PDF report generation. Built with **Vite**, **Tailwind CSS v4**, and a complete design system.
 
 > ✨ **Autoffer** is a B2B platform connecting aluminum suppliers with construction professionals, enabling quotation management, project collaboration, and automated pricing workflows.
